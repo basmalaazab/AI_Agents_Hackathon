@@ -207,9 +207,22 @@ The data engineering service exposes read-only HTTP endpoints:
 | `GET /api/v1/data/analytics/revenue-summary` | Aggregate revenue KPIs |
 | `GET /api/v1/data/analytics/sales-by-date` | Daily revenue series |
 | `GET /api/v1/data/analytics/sales-by-product` | Revenue by product |
-| `GET /api/v1/data/analytics/customer-frequency` | Customer purchase frequency |
+| `GET /api/v1/data/customer-frequency` | Customer purchase frequency |
+
+### Person 2 Analytics APIs (Built for Dashboard & Person 3 AI Agent)
+
+| Endpoint | Description | Query Parameters |
+|----------|-------------|------------------|
+| `GET /api/v1/analytics/overview` | Executive KPI cards with period-over-period comparison | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/revenue-trends` | Time-series daily/monthly revenue & order volume | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/sales-breakdown` | Category breakdown, sales channel share, & top products | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/customers` | Customer growth, repeat rate, frequency cohorts, & top LTV | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/alerts` | Automated business anomaly detection signals | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/ai-context` | **Person 3 AI Agent Dataset Payload** (unified JSON for LLM reasoning) | `date_range`, `source_name`, `start_date`, `end_date` |
+| `GET /api/v1/analytics/export/csv` | Downloadable CSV analytics report | `date_range`, `source_name`, `start_date`, `end_date` |
 
 Base URL: `http://localhost:8000`
+
 
 ---
 

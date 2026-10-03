@@ -36,6 +36,8 @@ services:
     environment:
       DATABASE_URL: postgresql://bi_user:bi_password@postgres:5432/bi_db
       MOCK_API_URL: http://mock_api:8001
+      HUBSPOT_ACCESS_TOKEN: ${HUBSPOT_ACCESS_TOKEN:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       APP_ENV: development
       LOG_LEVEL: INFO
       SCHEDULER_INTERVAL_MINUTES: 60
@@ -47,6 +49,18 @@ services:
     volumes:
       - ./data:/app/data
     restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: bi_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: http://app:8000
+    depends_on:
+      - app
 
 volumes:
   postgres_data:

@@ -173,3 +173,22 @@ class TestRawRecordStorage:
 
         raw = db_session.query(RawRecord).all()
         assert len(raw) == 3  # All raw records stored even if invalid
+
+
+class TestConnectorFailures:
+    def test_fetch_failure_is_persisted_as_failed_run(self, db_session, sample_source):
+        class FailingConnector:
+            def fetch(self, record_type, **kwargs):
+                raise RuntimeError("credential rejected")
+
+        svc = IngestionService(db_session)
+        run = svc.run_api_ingestion(
+            data_source=sample_source,
+            record_type="customer",
+            connector=FailingConnector(),
+            triggered_by="api",
+        )
+
+        assert run.status == RunStatus.FAILED
+        assert run.error_message == "credential rejected"
+        assert db_session.query(IngestionRun).filter_by(id=run.id).one().status == RunStatus.FAILED

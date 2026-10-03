@@ -1,6 +1,6 @@
 """Data sources CRUD endpoints."""
 import uuid
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/sources", tags=["data-sources"])
 
 class DataSourceCreate(BaseModel):
     name: str
-    source_type: str  # csv | mock_api | spreadsheet
+    source_type: Literal["csv", "mock_api", "spreadsheet", "hubspot", "stripe"]
     description: str | None = None
     is_active: bool = True
 

@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     google_sheets_token_file: Optional[str] = None
     shopify_shop_name: Optional[str] = None
     shopify_access_token: Optional[str] = None
+    hubspot_access_token: Optional[str] = None
+    stripe_secret_key: Optional[str] = None
+
+    # Person 3: AI Agent Settings
+    openai_api_key: Optional[str] = None
+    gemini_api_key: Optional[str] = None
+    ai_agent_model: str = "built-in-analyst"
+    ai_agent_temperature: float = 0.2
 
     @property
     def is_development(self) -> bool:
@@ -45,3 +53,4 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
+
