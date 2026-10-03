@@ -11,8 +11,16 @@ from pathlib import Path
 if "DATABASE_URL" not in os.environ:
     os.environ["DATABASE_URL"] = "sqlite:///bi_db.sqlite"
 
+# SQLite JSONB patch for standalone run
+from sqlalchemy import JSON
+import sqlalchemy.dialects.postgresql as pg_dialect
+class _SQLiteCompatibleJSON(JSON):
+    pass
+pg_dialect.JSONB = _SQLiteCompatibleJSON  # type: ignore
+
 # Add project root to sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
 
 
 from app.database import Base, engine, SessionLocal

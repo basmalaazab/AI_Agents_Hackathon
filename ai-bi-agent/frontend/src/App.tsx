@@ -6,8 +6,9 @@ import { RevenueTrendChart } from "./components/RevenueTrendChart";
 import { CategoryBreakdownChart } from "./components/CategoryBreakdownChart";
 import { TopPerformersTable } from "./components/TopPerformersTable";
 import { AlertsPanel } from "./components/AlertsPanel";
-import { AIContextModal } from "./components/AIContextModal";
+import { AIChatCopilotModal } from "./components/AIChatCopilotModal";
 import {
+
   fetchOverviewKPIs,
   fetchRevenueTrends,
   fetchSalesBreakdown,
@@ -165,14 +166,47 @@ export const App: React.FC = () => {
         isLoading={isLoading}
       />
 
-      {/* Person 3 AI Context Inspector Modal */}
-      <AIContextModal
+      {/* Person 3 AI Business Intelligence Copilot & Context Modal */}
+      <AIChatCopilotModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
         aiData={aiContextData}
+        dateRange={dateRange}
+        sourceName={sourceName}
       />
+
+      {/* Floating AI Agent Quick Access Button */}
+      <button
+        onClick={() => setIsAIModalOpen(true)}
+        style={{
+          position: "fixed",
+          bottom: "24px",
+          right: "24px",
+          padding: "12px 20px",
+          borderRadius: "30px",
+          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+          color: "#fff",
+          border: "none",
+          fontWeight: 600,
+          fontSize: "0.9rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          boxShadow: "0 8px 24px rgba(99, 102, 241, 0.5)",
+          cursor: "pointer",
+          zIndex: 99,
+          transition: "transform 0.2s, box-shadow 0.2s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
+        title="Open AI Agent Copilot"
+      >
+        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#34d399", display: "inline-block" }}></span>
+        <span>Ask AI Copilot</span>
+      </button>
     </div>
   );
 };
 
 export default App;
+

@@ -41,17 +41,28 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
             <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              Person 2 — Business KPIs, Predictive Analytics & AI Agent Context Layer
+              Person 2 & 3 — Business KPIs, Predictive Analytics & Autonomous AI Agent
             </p>
           </div>
         </div>
 
         {/* Controls / Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button className="btn btn-secondary" onClick={onOpenAIModal} title="Inspect AI Agent context payload">
-            <Bot size={18} color="var(--accent-indigo)" />
-            AI Context Inspector
+          <button
+            className="btn btn-secondary"
+            onClick={onOpenAIModal}
+            title="Chat with AI Business Intelligence Copilot"
+            style={{
+              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))",
+              border: "1px solid var(--accent-indigo)",
+              color: "#fff",
+              fontWeight: 600,
+            }}
+          >
+            <Bot size={18} color="#a5b4fc" />
+            AI Agent Copilot
           </button>
+
 
           <a href={exportUrl} download className="btn btn-primary" style={{ textDecoration: "none" }}>
             <Download size={18} />

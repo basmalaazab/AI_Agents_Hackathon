@@ -10,9 +10,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, sources, uploads, pipelines, data, analytics
+from app.api import health, sources, uploads, pipelines, data, analytics, agent
 from app.config import get_settings
 from app.services.scheduler import start_scheduler, stop_scheduler
+
 
 # ---------------------------------------------------------------------------
 # Logging configuration
@@ -76,6 +77,8 @@ app.include_router(uploads.router, prefix=API_PREFIX)
 app.include_router(pipelines.router, prefix=API_PREFIX)
 app.include_router(data.router, prefix=API_PREFIX)
 app.include_router(analytics.router, prefix=API_PREFIX)
+app.include_router(agent.router, prefix=API_PREFIX)
+
 
 
 
