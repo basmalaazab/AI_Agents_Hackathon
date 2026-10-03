@@ -91,20 +91,20 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
     scales: {
       x: {
         grid: {
-          color: "rgba(255, 255, 255, 0.04)",
+          color: "rgba(148, 163, 184, 0.1)",
         },
         ticks: {
-          color: "#94a3b8",
+          color: "var(--text-muted)",
           font: { size: 11 },
           maxRotation: 45,
         },
       },
       y: {
         grid: {
-          color: "rgba(255, 255, 255, 0.06)",
+          color: "rgba(148, 163, 184, 0.12)",
         },
         ticks: {
-          color: "#94a3b8",
+          color: "var(--text-muted)",
           font: { size: 11 },
           callback: (value: any) => (isRevenue ? `$${value}` : value),
         },
@@ -122,7 +122,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "8px", background: "rgba(255,255,255,0.05)", padding: "4px", borderRadius: "10px" }}>
+        <div style={{ display: "flex", gap: "8px", background: "var(--card-subtle-bg)", border: "1px solid var(--card-border)", padding: "4px", borderRadius: "10px" }}>
           <button
             onClick={() => setActiveTab("revenue")}
             style={{

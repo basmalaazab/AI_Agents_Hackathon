@@ -65,8 +65,8 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: "#94a3b8" } },
-      y: { grid: { color: "rgba(255, 255, 255, 0.05)" }, ticks: { color: "#94a3b8", callback: (v: any) => `$${v}` } },
+      x: { grid: { display: false }, ticks: { color: "var(--text-muted)" } },
+      y: { grid: { color: "rgba(148, 163, 184, 0.12)" }, ticks: { color: "var(--text-muted)", callback: (v: any) => `$${v}` } },
     },
   };
 
@@ -86,7 +86,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
           "rgba(244, 63, 94, 0.85)",
         ],
         borderWidth: 2,
-        borderColor: "rgba(15, 23, 42, 0.8)",
+        borderColor: "var(--card-bg)",
       },
     ],
   };
@@ -97,7 +97,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
     plugins: {
       legend: {
         position: "bottom" as const,
-        labels: { color: "#cbd5e1", font: { size: 12 }, padding: 16 },
+        labels: { color: "var(--text-secondary)", font: { size: 12 }, padding: 16 },
       },
       tooltip: {
         callbacks: {

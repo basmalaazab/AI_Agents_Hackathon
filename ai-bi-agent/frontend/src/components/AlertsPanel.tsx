@@ -64,7 +64,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading }) =
             style={{
               padding: "14px 16px",
               borderRadius: "12px",
-              background: "rgba(15, 23, 42, 0.5)",
+              background: "var(--card-subtle-bg)",
               border: getSeverityBorder(a.severity),
               display: "flex",
               alignItems: "flex-start",

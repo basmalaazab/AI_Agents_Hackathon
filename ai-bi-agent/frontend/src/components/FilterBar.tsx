@@ -52,7 +52,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 key={p.value}
                 onClick={() => onSelectDateRange(p.value)}
                 style={{
-                  background: isActive ? "var(--accent-indigo)" : "rgba(255, 255, 255, 0.05)",
+                  background: isActive ? "var(--accent-indigo)" : "var(--card-subtle-bg)",
                   color: isActive ? "#ffffff" : "var(--text-secondary)",
                   border: isActive ? "1px solid var(--accent-indigo)" : "1px solid var(--card-border)",
                   borderRadius: "8px",

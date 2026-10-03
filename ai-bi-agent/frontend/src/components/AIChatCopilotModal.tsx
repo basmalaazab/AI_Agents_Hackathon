@@ -249,7 +249,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            background: "rgba(15, 23, 42, 0.7)",
+            background: "var(--modal-sub-header)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -269,7 +269,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             </div>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <h3 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0 }}>
+                <h3 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
                   Person 3 — AI Business Intelligence Agent
                 </h3>
                 <span
@@ -278,7 +278,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     padding: "2px 8px",
                     borderRadius: "10px",
                     background: "rgba(16, 185, 129, 0.2)",
-                    color: "#34d399",
+                    color: "#10b981",
                     fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
@@ -314,7 +314,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
           style={{
             display: "flex",
             borderBottom: "1px solid var(--card-border)",
-            background: "rgba(10, 15, 29, 0.5)",
+            background: "var(--modal-tab-bar)",
             padding: "0 16px",
             gap: "8px",
           }}
@@ -326,7 +326,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               background: "transparent",
               border: "none",
               borderBottom: activeTab === "chat" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "chat" ? "#fff" : "var(--text-secondary)",
+              color: activeTab === "chat" ? "var(--accent-indigo)" : "var(--text-secondary)",
               fontWeight: activeTab === "chat" ? 600 : 500,
               fontSize: "0.85rem",
               cursor: "pointer",
@@ -346,7 +346,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               background: "transparent",
               border: "none",
               borderBottom: activeTab === "recommendations" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "recommendations" ? "#fff" : "var(--text-secondary)",
+              color: activeTab === "recommendations" ? "var(--accent-indigo)" : "var(--text-secondary)",
               fontWeight: activeTab === "recommendations" ? 600 : 500,
               fontSize: "0.85rem",
               cursor: "pointer",
@@ -355,7 +355,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               gap: "8px",
             }}
           >
-            <Lightbulb size={16} color={activeTab === "recommendations" ? "#fbbf24" : "currentColor"} />
+            <Lightbulb size={16} color={activeTab === "recommendations" ? "#f59e0b" : "currentColor"} />
             Strategic Action Plan
           </button>
 
@@ -366,7 +366,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               background: "transparent",
               border: "none",
               borderBottom: activeTab === "diagnose" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "diagnose" ? "#fff" : "var(--text-secondary)",
+              color: activeTab === "diagnose" ? "var(--accent-indigo)" : "var(--text-secondary)",
               fontWeight: activeTab === "diagnose" ? 600 : 500,
               fontSize: "0.85rem",
               cursor: "pointer",
@@ -386,7 +386,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               background: "transparent",
               border: "none",
               borderBottom: activeTab === "sql" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "sql" ? "#fff" : "var(--text-secondary)",
+              color: activeTab === "sql" ? "var(--accent-indigo)" : "var(--text-secondary)",
               fontWeight: activeTab === "sql" ? 600 : 500,
               fontSize: "0.85rem",
               cursor: "pointer",
@@ -395,7 +395,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               gap: "8px",
             }}
           >
-            <Database size={16} color={activeTab === "sql" ? "#38bdf8" : "currentColor"} />
+            <Database size={16} color={activeTab === "sql" ? "#0284c7" : "currentColor"} />
             Safe SQL Runner
           </button>
 
@@ -406,7 +406,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               background: "transparent",
               border: "none",
               borderBottom: activeTab === "raw" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "raw" ? "#fff" : "var(--text-secondary)",
+              color: activeTab === "raw" ? "var(--accent-indigo)" : "var(--text-secondary)",
               fontWeight: activeTab === "raw" ? 600 : 500,
               fontSize: "0.85rem",
               cursor: "pointer",
@@ -432,8 +432,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                   display: "flex",
                   gap: "8px",
                   overflowX: "auto",
-                  borderBottom: "1px solid rgba(255,255,255,0.05)",
-                  background: "rgba(15, 23, 42, 0.4)",
+                  borderBottom: "1px solid var(--card-border)",
+                  background: "var(--modal-tab-bar)",
                 }}
               >
                 {suggestions.map((s, idx) => (
@@ -444,10 +444,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                       whiteSpace: "nowrap",
                       padding: "6px 12px",
                       borderRadius: "16px",
-                      border: "1px solid rgba(99, 102, 241, 0.3)",
-                      background: "rgba(99, 102, 241, 0.1)",
-                      color: "#cbd5e1",
+                      border: "1px solid var(--pill-border)",
+                      background: "var(--pill-bg)",
+                      color: "var(--pill-text)",
                       fontSize: "0.75rem",
+                      fontWeight: 500,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
@@ -479,11 +480,12 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                         maxWidth: "85%",
                         padding: "14px 18px",
                         borderRadius: isAssistant ? "18px 18px 18px 4px" : "18px 18px 4px 18px",
-                        background: isAssistant ? "rgba(30, 41, 59, 0.7)" : "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                        border: isAssistant ? "1px solid rgba(255, 255, 255, 0.08)" : "none",
-                        color: "#fff",
+                        background: isAssistant ? "var(--chat-assistant-bg)" : "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                        border: isAssistant ? "1px solid var(--chat-assistant-border)" : "none",
+                        color: isAssistant ? "var(--chat-assistant-text)" : "#ffffff",
                         fontSize: "0.88rem",
                         lineHeight: 1.55,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                       }}
                     >
                       {/* Markdown text formatted with simple rules */}
@@ -493,14 +495,15 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
                       {/* Collapsible Executed SQL */}
                       {m.executed_sql && (
-                        <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                        <div style={{ marginTop: "12px", paddingTop: "10px", borderTop: "1px solid var(--card-border)" }}>
                           <button
                             onClick={() => setExpandedSqlMsgId(expandedSqlMsgId === m.id ? null : m.id)}
                             style={{
                               background: "transparent",
                               border: "none",
-                              color: "#38bdf8",
+                              color: "var(--accent-indigo)",
                               fontSize: "0.75rem",
+                              fontWeight: 600,
                               cursor: "pointer",
                               display: "flex",
                               alignItems: "center",
@@ -517,11 +520,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                             <pre
                               style={{
                                 marginTop: "8px",
-                                background: "#090d16",
+                                background: "var(--code-bg)",
                                 padding: "10px",
                                 borderRadius: "8px",
                                 fontSize: "0.75rem",
-                                color: "#34d399",
+                                color: "var(--code-text)",
                                 overflowX: "auto",
                               }}
                             >
@@ -542,9 +545,9 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                             style={{
                               padding: "4px 10px",
                               borderRadius: "12px",
-                              border: "1px solid rgba(255,255,255,0.1)",
-                              background: "rgba(255,255,255,0.04)",
-                              color: "#94a3b8",
+                              border: "1px solid var(--card-border)",
+                              background: "var(--card-subtle-bg)",
+                              color: "var(--text-secondary)",
                               fontSize: "0.75rem",
                               cursor: "pointer",
                             }}
@@ -576,7 +579,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               style={{
                 padding: "16px 24px",
                 borderTop: "1px solid var(--card-border)",
-                background: "rgba(15, 23, 42, 0.6)",
+                background: "var(--modal-sub-header)",
                 display: "flex",
                 gap: "12px",
               }}
@@ -592,9 +595,9 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                   flex: 1,
                   padding: "12px 16px",
                   borderRadius: "12px",
-                  border: "1px solid var(--card-border)",
-                  background: "rgba(0, 0, 0, 0.4)",
-                  color: "#fff",
+                  border: "1px solid var(--input-border)",
+                  background: "var(--input-bg)",
+                  color: "var(--input-color)",
                   fontSize: "0.9rem",
                   outline: "none",
                 }}
@@ -630,7 +633,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                       background: "rgba(99, 102, 241, 0.12)",
                       border: "1px solid rgba(99, 102, 241, 0.3)",
                       fontSize: "0.9rem",
-                      color: "#e2e8f0",
+                      color: "var(--text-primary)",
                       lineHeight: 1.6,
                     }}
                   >
@@ -645,12 +648,12 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                       style={{
                         padding: "20px",
                         borderRadius: "16px",
-                        background: "rgba(30, 41, 59, 0.5)",
-                        border: "1px solid rgba(255, 255, 255, 0.08)",
+                        background: "var(--card-subtle-bg)",
+                        border: "1px solid var(--card-subtle-border)",
                       }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "8px" }}>
-                        <h4 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0 }}>{rec.title}</h4>
+                        <h4 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>{rec.title}</h4>
                         <span
                           style={{
                             fontSize: "0.75rem",
@@ -659,16 +662,16 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                             fontWeight: 700,
                             background:
                               rec.priority === "HIGH"
-                                ? "rgba(244, 63, 94, 0.2)"
+                                ? "rgba(244, 63, 94, 0.15)"
                                 : rec.priority === "MEDIUM"
-                                ? "rgba(251, 191, 36, 0.2)"
-                                : "rgba(148, 163, 184, 0.2)",
+                                ? "rgba(251, 191, 36, 0.15)"
+                                : "rgba(148, 163, 184, 0.15)",
                             color:
                               rec.priority === "HIGH"
-                                ? "#f43f5e"
+                                ? "#e11d48"
                                 : rec.priority === "MEDIUM"
-                                ? "#fbbf24"
-                                : "#cbd5e1",
+                                ? "#d97706"
+                                : "var(--text-secondary)",
                           }}
                         >
                           {rec.priority} PRIORITY
@@ -677,19 +680,19 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
                       <div style={{ display: "flex", gap: "16px", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
                         <span>📁 Category: <strong>{rec.category}</strong></span>
-                        <span>⚡ Impact: <strong style={{ color: "#34d399" }}>{rec.expected_impact}</strong></span>
+                        <span>⚡ Impact: <strong style={{ color: "#10b981" }}>{rec.expected_impact}</strong></span>
                         <span>⏱️ Effort: <strong>{rec.implementation_effort}</strong></span>
                       </div>
 
-                      <p style={{ fontSize: "0.85rem", color: "#94a3b8", fontStyle: "italic", marginBottom: "14px" }}>
+                      <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontStyle: "italic", marginBottom: "14px" }}>
                         📊 {rec.data_justification}
                       </p>
 
-                      <div style={{ background: "rgba(0,0,0,0.3)", padding: "12px 16px", borderRadius: "10px" }}>
-                        <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#cbd5e1", marginBottom: "6px" }}>
+                      <div style={{ background: "var(--modal-tab-bar)", padding: "12px 16px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
+                        <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: "6px" }}>
                           Action Checklist:
                         </div>
-                        <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.85rem", color: "#e2e8f0" }}>
+                        <ul style={{ margin: 0, paddingLeft: "20px", fontSize: "0.85rem", color: "var(--text-primary)" }}>
                           {rec.action_steps.map((step, sIdx) => (
                             <li key={sIdx} style={{ marginBottom: "4px" }}>{step}</li>
                           ))}
@@ -712,7 +715,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                 <p>Investigating root causes of operational alerts...</p>
               </div>
             ) : diagnoses.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "#34d399" }}>
+              <div style={{ textAlign: "center", padding: "40px", color: "#10b981" }}>
                 <CheckCircle2 size={36} style={{ margin: "0 auto 12px" }} />
                 <h3>All Business Metrics Stable</h3>
                 <p style={{ color: "var(--text-secondary)" }}>No severe anomalies or drops detected for this period.</p>
@@ -724,34 +727,34 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                   style={{
                     padding: "20px",
                     borderRadius: "16px",
-                    background: "rgba(30, 41, 59, 0.5)",
+                    background: "var(--card-subtle-bg)",
                     border: diag.severity === "danger" ? "1px solid rgba(244, 63, 94, 0.4)" : "1px solid rgba(251, 191, 36, 0.4)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
                     <AlertTriangle size={20} color={diag.severity === "danger" ? "#f43f5e" : "#fbbf24"} />
-                    <h4 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0 }}>{diag.title}</h4>
+                    <h4 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>{diag.title}</h4>
                   </div>
 
-                  <p style={{ fontSize: "0.9rem", color: "#e2e8f0", marginBottom: "14px" }}>{diag.summary}</p>
+                  <p style={{ fontSize: "0.9rem", color: "var(--text-primary)", marginBottom: "14px" }}>{diag.summary}</p>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "14px" }}>
-                    <div style={{ background: "rgba(0,0,0,0.3)", padding: "12px", borderRadius: "10px" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#f87171", marginBottom: "4px" }}>
+                    <div style={{ background: "var(--modal-tab-bar)", padding: "12px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#e11d48", marginBottom: "4px" }}>
                         Root Causes Identified:
                       </div>
-                      <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "#cbd5e1" }}>
+                      <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                         {diag.root_causes.map((rc, rIdx) => (
                           <li key={rIdx}>{rc}</li>
                         ))}
                       </ul>
                     </div>
 
-                    <div style={{ background: "rgba(0,0,0,0.3)", padding: "12px", borderRadius: "10px" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#34d399", marginBottom: "4px" }}>
+                    <div style={{ background: "var(--modal-tab-bar)", padding: "12px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#10b981", marginBottom: "4px" }}>
                         Recommended Mitigation Steps:
                       </div>
-                      <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "#cbd5e1" }}>
+                      <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                         {diag.mitigation_actions.map((act, aIdx) => (
                           <li key={aIdx}>{act}</li>
                         ))}
@@ -780,11 +783,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                   width: "100%",
                   padding: "12px 14px",
                   borderRadius: "10px",
-                  background: "#090d16",
-                  color: "#38bdf8",
+                  background: "var(--code-bg)",
+                  color: "var(--code-text)",
                   fontFamily: "monospace",
                   fontSize: "0.85rem",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  border: "1px solid var(--input-border)",
                   outline: "none",
                 }}
               />
@@ -802,7 +805,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             </div>
 
             {sqlError && (
-              <div style={{ padding: "12px", borderRadius: "10px", background: "rgba(244, 63, 94, 0.15)", border: "1px solid rgba(244, 63, 94, 0.4)", color: "#f87171", fontSize: "0.85rem" }}>
+              <div style={{ padding: "12px", borderRadius: "10px", background: "rgba(244, 63, 94, 0.15)", border: "1px solid rgba(244, 63, 94, 0.4)", color: "#e11d48", fontSize: "0.85rem" }}>
                 ⚠️ {sqlError}
               </div>
             )}
@@ -812,12 +815,12 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                 <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "8px" }}>
                   Returned {sqlResult.row_count} row(s):
                 </div>
-                <div style={{ overflowX: "auto", maxHeight: "300px", borderRadius: "10px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ overflowX: "auto", maxHeight: "300px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8rem", textAlign: "left" }}>
                     <thead>
-                      <tr style={{ background: "rgba(15, 23, 42, 0.9)", color: "var(--accent-indigo)" }}>
+                      <tr style={{ background: "var(--modal-tab-bar)", color: "var(--accent-indigo)" }}>
                         {sqlResult.columns.map((col, cIdx) => (
-                          <th key={cIdx} style={{ padding: "8px 12px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+                          <th key={cIdx} style={{ padding: "8px 12px", borderBottom: "1px solid var(--card-border)" }}>
                             {col}
                           </th>
                         ))}
@@ -825,9 +828,9 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     </thead>
                     <tbody>
                       {sqlResult.rows.map((r, rIdx) => (
-                        <tr key={rIdx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <tr key={rIdx} style={{ borderBottom: "1px solid var(--card-border)" }}>
                           {sqlResult.columns.map((col, cIdx) => (
-                            <td key={cIdx} style={{ padding: "8px 12px", color: "#e2e8f0" }}>
+                            <td key={cIdx} style={{ padding: "8px 12px", color: "var(--text-primary)" }}>
                               {String(r[col] ?? "")}
                             </td>
                           ))}
@@ -844,7 +847,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         {/* Tab 5: Raw AI Context Inspector */}
         {activeTab === "raw" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-            <div style={{ marginBottom: "16px", padding: "12px 16px", background: "rgba(99, 102, 241, 0.1)", borderRadius: "10px", border: "1px solid rgba(99, 102, 241, 0.2)", fontSize: "0.85rem", color: "#cbd5e1" }}>
+            <div style={{ marginBottom: "16px", padding: "12px 16px", background: "var(--pill-bg)", borderRadius: "10px", border: "1px solid var(--pill-border)", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
               💡 <strong>Unified Payload:</strong> Exposed via <code>GET /api/v1/analytics/ai-context</code>. The AI Agent feeds this exact snapshot into its analytical engine.
             </div>
 
@@ -860,15 +863,15 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
               <pre
                 style={{
-                  background: "#090d16",
+                  background: "var(--code-bg)",
                   padding: "16px",
                   borderRadius: "12px",
                   fontSize: "0.8rem",
-                  color: "#34d399",
+                  color: "var(--code-text)",
                   fontFamily: "monospace",
                   overflowX: "auto",
                   maxHeight: "480px",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  border: "1px solid var(--card-border)",
                 }}
               >
                 {JSON.stringify(aiData, null, 2)}
@@ -878,7 +881,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         )}
 
         {/* Footer */}
-        <div style={{ padding: "14px 24px", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(15, 23, 42, 0.7)" }}>
+        <div style={{ padding: "14px 24px", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--modal-sub-header)" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
             Powered by Person 3 AI Agent • Safe SQL & Analytical Reasoning Engine
           </span>

@@ -23,17 +23,51 @@
   --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   --font-family: 'Inter', system-ui, sans-serif;
   --font-heading: 'Outfit', system-ui, sans-serif;
+  --input-bg: rgba(15, 23, 42, 0.6);
+  --input-border: var(--card-border);
+  --input-color: var(--text-primary);
+  --modal-bg: rgba(15, 23, 42, 0.95);
+  --modal-sub-header: rgba(15, 23, 42, 0.7);
+  --modal-tab-bar: rgba(10, 15, 29, 0.5);
+  --chat-assistant-bg: rgba(30, 41, 59, 0.7);
+  --chat-assistant-border: rgba(255, 255, 255, 0.08);
+  --chat-assistant-text: #f8fafc;
+  --chat-user-text: #ffffff;
+  --code-bg: #090d16;
+  --code-text: #38bdf8;
+  --pill-bg: rgba(99, 102, 241, 0.1);
+  --pill-border: rgba(99, 102, 241, 0.3);
+  --pill-text: #cbd5e1;
+  --card-subtle-bg: rgba(30, 41, 59, 0.5);
+  --card-subtle-border: rgba(255, 255, 255, 0.08);
 }
 
 [data-theme='light'] {
   --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e0e7ff 100%);
-  --card-bg: rgba(255, 255, 255, 0.85);
-  --card-border: rgba(0, 0, 0, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-border: rgba(0, 0, 0, 0.09);
   --card-hover-border: rgba(99, 102, 241, 0.5);
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+  --input-bg: #ffffff;
+  --input-border: #cbd5e1;
+  --input-color: #0f172a;
+  --modal-bg: #ffffff;
+  --modal-sub-header: #f8fafc;
+  --modal-tab-bar: #f1f5f9;
+  --chat-assistant-bg: #f1f5f9;
+  --chat-assistant-border: #e2e8f0;
+  --chat-assistant-text: #0f172a;
+  --chat-user-text: #ffffff;
+  --code-bg: #1e293b;
+  --code-text: #38bdf8;
+  --pill-bg: rgba(99, 102, 241, 0.08);
+  --pill-border: rgba(99, 102, 241, 0.25);
+  --pill-text: #4338ca;
+  --card-subtle-bg: #f8fafc;
+  --card-subtle-border: #e2e8f0;
 }
 
 * {
@@ -137,14 +171,14 @@ h1, h2, h3, h4, .font-heading {
 
 /* Select & Inputs */
 .select-input, .date-input {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--card-border);
-  color: var(--text-primary);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  color: var(--input-color);
   padding: 8px 14px;
   border-radius: 10px;
   font-size: 0.875rem;
   outline: none;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 .select-input:focus, .date-input:focus {

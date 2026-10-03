@@ -730,7 +730,7 @@ class AIAgentService:
         # Intent Classification & Built-in Analytical Reasoning
         # -------------------------------------------------------------------
 
-        # 1. Direct SQL request: user wrote an explicit SQL statement or asked for query
+        # 1. Direct SQL
         if q_lower.startswith("select") or q_lower.startswith("with "):
             intent = "direct_sql"
             sql_exec = self.execute_safe_sql(q_clean)
@@ -738,12 +738,11 @@ class AIAgentService:
             sql_results = sql_exec
             if sql_exec["success"]:
                 answer = (
-                    f"### 🗄️ SQL Query Execution Results\n\n"
+                    f"### \U0001f5c4\ufe0f SQL Query Execution Results\n\n"
                     f"**Executed Query:**\n```sql\n{sql_exec['query']}\n```\n\n"
                     f"**Returned Rows:** `{sql_exec['row_count']}` record(s).\n\n"
                 )
                 if sql_exec["rows"]:
-                    # Format as markdown table
                     headers = sql_exec["columns"]
                     answer += "| " + " | ".join(headers) + " |\n"
                     answer += "| " + " | ".join(["---"] * len(headers)) + " |\n"
@@ -752,28 +751,27 @@ class AIAgentService:
                     if sql_exec["row_count"] > 10:
                         answer += f"\n*... showing first 10 of {sql_exec['row_count']} rows.*"
             else:
-                answer = f"⚠️ **SQL Execution Blocked / Failed:** {sql_exec.get('error')}"
-
+                answer = f"\u26a0\ufe0f **SQL Execution Blocked / Failed:** {sql_exec.get('error')}"
             followups = [
                 "Summarize these query results in plain English",
                 "What recommendations follow from this data?",
             ]
 
-        # 2. Revenue & Sales Overview
-        elif any(k in q_lower for k in ["revenue", "sales", "earnings", "turnover", "how much did we make"]):
+        # 2. Revenue & Sales
+        elif any(k in q_lower for k in [
+            "revenue", "sales", "earnings", "turnover", "how much did we make",
+            "total income", "gross", "profit", "how much money", "what did we make",
+            "money", "income",
+        ]):
             intent = "revenue_analysis"
-            rev = kpis["revenue"]
+            rev  = kpis["revenue"]
             ordr = kpis["orders"]
-            aov = self._get_aov_metric(kpis)
+            aov  = self._get_aov_metric(kpis)
             canc = kpis["cancellation_rate"]
-
-
             rev_change_str = (
                 f"{rev['percentage_change']:+.1f}% vs previous period"
-                if rev["percentage_change"] is not None
-                else "No prior period data"
+                if rev["percentage_change"] is not None else "No prior period data"
             )
-
             executed_sql = (
                 "SELECT COUNT(*) AS total_orders, "
                 "SUM(total_amount_usd) AS total_revenue_usd, "
@@ -782,37 +780,74 @@ class AIAgentService:
             )
             if include_sql:
                 sql_results = self.execute_safe_sql(executed_sql)
-
             answer = (
-                f"### 💰 Revenue & Sales Performance Summary\n\n"
-                f"For the selected period (`{date_range}`):\n\n"
+                f"### \U0001f4b0 Revenue & Sales Performance\n\n"
+                f"Period: `{date_range}`\n\n"
                 f"- **Total Revenue:** `${rev['current']:,.2f}` ({rev_change_str})\n"
                 f"- **Completed Orders:** `{ordr['current']}` orders\n"
-                f"- **Average Order Value (AOV):** `${aov['current']:,.2f}`\n"
-                f"- **Order Cancellation Rate:** `{canc['current']}%`\n\n"
+                f"- **Average Order Value:** `${aov['current']:,.2f}`\n"
+                f"- **Cancellation Rate:** `{canc['current']}%`\n\n"
             )
-
             if rev["percentage_change"] is not None and rev["percentage_change"] < 0:
                 answer += (
-                    f"⚠️ **Notice:** Revenue contracted by `{abs(rev['percentage_change'])}%` compared to the prior period. "
-                    "This was driven primarily by lower order volume. See root cause diagnosis for details.\n\n"
+                    f"\u26a0\ufe0f Revenue contracted by `{abs(rev['percentage_change'])}%` vs prior period. "
+                    "Check root-cause diagnosis for details.\n\n"
                 )
             elif rev["percentage_change"] is not None and rev["percentage_change"] > 0:
-                answer += (
-                    f"🚀 **Positive Momentum:** Revenue expanded by `{rev['percentage_change']}%` compared to the prior period!\n\n"
-                )
-
+                answer += f"\U0001f680 Revenue grew by `{rev['percentage_change']}%` vs prior period!\n\n"
             followups = [
-                "Why did revenue change compared to last period?",
+                "Why did revenue change vs last period?",
                 "Which product generated the most revenue?",
-                "What actions should we take to increase sales?",
+                "How can we increase sales?",
             ]
 
-        # 3. Product Performance & Best Sellers
-        elif any(k in q_lower for k in ["product", "best seller", "top seller", "sku", "item", "inventory"]):
+        # 3. Orders & Volume
+        elif any(k in q_lower for k in [
+            "order", "orders", "how many orders", "volume", "transaction", "purchases",
+            "number of orders", "order count", "order status", "completed orders",
+            "pending", "fulfilled", "how many sales",
+        ]):
+            intent = "orders_analysis"
+            ordr = kpis["orders"]
+            canc = kpis["cancellation_rate"]
+            rev  = kpis["revenue"]
+            order_change_str = (
+                f"{ordr['percentage_change']:+.1f}% vs previous period"
+                if ordr.get("percentage_change") is not None else "No prior period data"
+            )
+            executed_sql = (
+                "SELECT status, COUNT(*) AS count, SUM(total_amount_usd) AS total_usd "
+                "FROM orders GROUP BY status ORDER BY count DESC;"
+            )
+            if include_sql:
+                sql_results = self.execute_safe_sql(executed_sql)
+            answer = (
+                f"### \U0001f4e6 Orders & Volume Breakdown\n\n"
+                f"- **Completed Orders:** `{ordr['current']}` ({order_change_str})\n"
+                f"- **Revenue from Orders:** `${rev['current']:,.2f}`\n"
+                f"- **Cancellation Rate:** `{canc['current']}%`\n\n"
+            )
+            if canc["current"] > 5.0:
+                answer += (
+                    f"\u26a0\ufe0f High cancellation rate `{canc['current']}%` — "
+                    "above 5% healthy threshold.\n\n"
+                )
+            else:
+                answer += "\u2705 Cancellation rate is within a healthy range.\n\n"
+            followups = [
+                "Why is the cancellation rate high?",
+                "Which products have the most orders?",
+                "What is our average order value?",
+            ]
+
+        # 4. Products & Best Sellers
+        elif any(k in q_lower for k in [
+            "product", "best seller", "top seller", "sku", "item", "inventory",
+            "best performing", "top product", "what sells", "most sold",
+            "popular", "best product", "which product",
+        ]):
             intent = "product_analysis"
             top_prods = breakdown.get("top_products", [])
-
             executed_sql = (
                 "SELECT oi.product_name, SUM(oi.quantity) AS units_sold, "
                 "SUM(oi.line_total) AS revenue_usd "
@@ -822,37 +857,76 @@ class AIAgentService:
             )
             if include_sql:
                 sql_results = self.execute_safe_sql(executed_sql)
-
-            answer = "### 🏆 Top Performing Products\n\n"
+            answer = "### \U0001f3c6 Top Performing Products\n\n"
             if top_prods:
-                answer += "Here are the top products ranked by gross revenue:\n\n"
-                answer += "| Product Name | Units Sold | Revenue (USD) | SKU |\n"
-                answer += "| --- | --- | --- | --- |\n"
+                answer += "| Product | Units Sold | Revenue |\n| --- | --- | --- |\n"
                 for p in top_prods[:5]:
-                    answer += f"| **{p['name']}** | {p['units_sold']} | ${p['revenue']:,.2f} | `{p['sku']}` |\n"
-
+                    answer += f"| **{p['name']}** | {p['units_sold']} | ${p['revenue']:,.2f} |\n"
                 top_one = top_prods[0]
                 answer += (
-                    f"\n⭐ **Key Insight:** **{top_one['name']}** is your #1 revenue driver "
+                    f"\n\u2b50 **{top_one['name']}** is your #1 revenue driver "
                     f"with `${top_one['revenue']:,.2f}` across {top_one['units_sold']} units.\n"
                 )
             else:
-                answer += "No completed product sales were recorded for this period.\n"
-
+                answer += "No completed product sales recorded for this period.\n"
             followups = [
-                "Which product category performs best?",
+                "Which category performs best?",
                 "How do we bundle top products to raise AOV?",
-                "Are any top products at risk of running out of stock?",
+                "Is our top product at risk of running out of stock?",
             ]
 
-        # 4. Customer Retention, Churn & High LTV
-        elif any(k in q_lower for k in ["customer", "churn", "repeat", "loyalty", "ltv", "retention"]):
+        # 5. Average Order Value
+        elif any(k in q_lower for k in [
+            "aov", "average order", "average order value", "basket size",
+            "average sale", "order average", "avg order",
+        ]):
+            intent = "aov_analysis"
+            aov  = self._get_aov_metric(kpis)
+            rev  = kpis["revenue"]
+            ordr = kpis["orders"]
+            top_prods = breakdown.get("top_products", [])
+            executed_sql = (
+                "SELECT AVG(total_amount_usd) AS avg_order_value_usd, "
+                "MIN(total_amount_usd) AS min_order, MAX(total_amount_usd) AS max_order "
+                "FROM orders WHERE status NOT IN ('cancelled', 'refunded');"
+            )
+            if include_sql:
+                sql_results = self.execute_safe_sql(executed_sql)
+            aov_change = aov.get("percentage_change")
+            aov_str = f"{aov_change:+.1f}% vs previous period" if aov_change is not None else "No prior data"
+            answer = (
+                f"### \U0001f6d2 Average Order Value (AOV)\n\n"
+                f"- **AOV:** `${aov['current']:,.2f}` ({aov_str})\n"
+                f"- **Total Revenue:** `${rev['current']:,.2f}` from `{ordr['current']}` orders\n\n"
+            )
+            if aov["current"] < 50:
+                answer += (
+                    f"\U0001f4ca AOV below $50 — consider bundles or a free-shipping threshold "
+                    f"(suggested: ${aov['current']*1.2:.0f}).\n\n"
+                )
+            elif aov["current"] < 100:
+                answer += "\U0001f4ca Moderate AOV — 15-20% lift possible through bundling and upsell.\n\n"
+            else:
+                answer += "\u2705 Strong AOV — focus on volume growth to scale revenue.\n\n"
+            if top_prods:
+                answer += f"\U0001f4a1 Bundle **{top_prods[0]['name']}** with accessories to further lift AOV.\n"
+            followups = [
+                "What is our total revenue?",
+                "How can we increase AOV?",
+                "What are our top selling products?",
+            ]
+
+        # 6. Customers & Retention
+        elif any(k in q_lower for k in [
+            "customer", "churn", "repeat", "loyalty", "ltv", "retention",
+            "returning", "who are", "top customer", "best customer",
+            "lifetime value", "how many customer", "at risk", "win back", "winback",
+        ]):
             intent = "customer_analysis"
             rep_rate = customer_health.get("repeat_customer_rate_pct", 0.0)
-            at_risk = customer_health.get("churn_at_risk_count", 0)
-            active = customer_health.get("active_in_period", 0)
+            at_risk  = customer_health.get("churn_at_risk_count", 0)
+            active   = customer_health.get("active_in_period", 0)
             new_cust = customer_health.get("new_in_period", 0)
-
             executed_sql = (
                 "SELECT c.email, c.first_name, c.last_name, COUNT(o.id) AS order_count, "
                 "SUM(o.total_amount_usd) AS lifetime_value_usd "
@@ -863,83 +937,117 @@ class AIAgentService:
             )
             if include_sql:
                 sql_results = self.execute_safe_sql(executed_sql)
-
             answer = (
-                f"### 👥 Customer Health & Retention Breakdown\n\n"
+                f"### \U0001f465 Customer Health & Retention\n\n"
                 f"- **Repeat Customer Rate:** `{rep_rate}%`\n"
-                f"- **Active Customers in Period:** `{active}`\n"
+                f"- **Active Customers:** `{active}`\n"
                 f"- **New Customers Acquired:** `{new_cust}`\n"
-                f"- **Customers at Risk of Churn:** `{at_risk}`\n\n"
+                f"- **Churn Risk:** `{at_risk}` customers\n\n"
             )
-
             if at_risk > 0:
                 answer += (
-                    f"⚠️ **Attention Required:** {at_risk} past customer(s) have lapsed beyond their usual repurchase interval. "
-                    "We recommend initiating an automated email win-back campaign with a discount incentive.\n\n"
+                    f"\u26a0\ufe0f {at_risk} customers have lapsed beyond their repurchase interval. "
+                    "Launch an automated win-back campaign.\n\n"
                 )
             else:
-                answer += "Customer retention health is currently stable.\n\n"
-
+                answer += "\u2705 Customer retention is currently stable.\n\n"
             followups = [
-                "What win-back campaign should we send to at-risk customers?",
+                "What win-back campaign should we send?",
                 "Who are our top 5 most valuable customers?",
-                "How can we increase the repeat customer rate?",
+                "How do we increase the repeat customer rate?",
             ]
 
-        # 5. Anomaly & Root Cause Diagnosis
-        elif any(k in q_lower for k in ["why", "drop", "decline", "fall", "issue", "problem", "diagnos", "alert", "anomaly", "cancellation"]):
+        # 7. Categories
+        elif any(k in q_lower for k in [
+            "category", "categories", "segment", "department", "product type",
+            "collection", "breakdown by category",
+        ]):
+            intent = "category_analysis"
+            top_cats = breakdown.get("top_categories", [])
+            executed_sql = (
+                "SELECT p.category, COUNT(oi.id) AS units_sold, "
+                "SUM(oi.line_total) AS revenue_usd "
+                "FROM order_items oi "
+                "JOIN orders o ON o.id = oi.order_id "
+                "JOIN products p ON p.id = oi.product_id "
+                "WHERE o.status NOT IN ('cancelled', 'refunded') "
+                "GROUP BY p.category ORDER BY revenue_usd DESC;"
+            )
+            if include_sql:
+                sql_results = self.execute_safe_sql(executed_sql)
+            answer = "### \U0001f4c2 Sales by Product Category\n\n"
+            if top_cats:
+                answer += "| Category | Units | Revenue |\n| --- | --- | --- |\n"
+                for cat in top_cats[:6]:
+                    answer += f"| **{cat.get('category', 'N/A')}** | {cat.get('units_sold', 0)} | ${cat.get('revenue', 0):,.2f} |\n"
+                leading = top_cats[0]
+                answer += f"\n\U0001f3c5 **{leading.get('category')}** leads with `${leading.get('revenue', 0):,.2f}`.\n"
+            else:
+                answer += "No category data available for this period.\n"
+            followups = [
+                "What product within the top category sells most?",
+                "How should we expand the best category?",
+                "What is our total revenue?",
+            ]
+
+        # 8. Anomaly & Root-Cause Diagnosis
+        elif any(k in q_lower for k in [
+            "why", "drop", "decline", "fall", "issue", "problem", "diagnos",
+            "alert", "anomaly", "cancellation", "what went wrong", "explain",
+            "cause", "reason", "spike", "sudden", "unexpected",
+        ]):
             intent = "anomaly_diagnosis"
             diagnoses = self.diagnose_anomalies(date_range, source_name)
-            answer = "### 🔬 Root-Cause Business Diagnosis\n\n"
+            answer = "### \U0001f52c Root-Cause Business Diagnosis\n\n"
             for d in diagnoses:
-                badge = "🔴" if d["severity"] == "danger" else ("🟡" if d["severity"] == "warning" else "🔵")
-                answer += f"#### {badge} {d['title']}\n"
-                answer += f"{d['summary']}\n\n"
-                answer += "**Root Causes Identified:**\n"
+                badge = "\U0001f534" if d["severity"] == "danger" else ("\U0001f7e1" if d["severity"] == "warning" else "\U0001f535")
+                answer += f"#### {badge} {d['title']}\n{d['summary']}\n\n"
+                answer += "**Root Causes:**\n"
                 for rc in d["root_causes"]:
                     answer += f"- {rc}\n"
-                answer += "\n**Recommended Immediate Actions:**\n"
+                answer += "\n**Actions:**\n"
                 for act in d["mitigation_actions"]:
                     answer += f"- {act}\n"
                 answer += "\n"
-
             followups = [
                 "Generate full strategic action plan",
-                "Show top products to see if inventory is impacted",
-                "What is our current average order value?",
+                "Show top products",
+                "What is our AOV?",
             ]
 
-        # 6. Strategic Recommendations & Action Plan
-        elif any(k in q_lower for k in ["recommend", "strategy", "action", "grow", "plan", "increase", "advice", "what should we do"]):
+        # 9. Strategic Recommendations
+        elif any(k in q_lower for k in [
+            "recommend", "strategy", "action", "grow", "plan", "increase", "advice",
+            "what should we do", "what should i do", "how to improve", "how can we",
+            "suggestions", "tips", "next steps", "improve", "optimize",
+        ]):
             intent = "recommendations"
             recs_data = self.generate_recommendations(date_range, source_name)
-            answer = (
-                f"### 📋 Strategic Action Plan\n\n"
-                f"{recs_data['executive_summary']}\n\n"
-            )
+            answer = f"### \U0001f4cb Strategic Action Plan\n\n{recs_data['executive_summary']}\n\n"
             for r in recs_data["recommendations"][:3]:
-                p_badge = "🔥 [HIGH PRIORITY]" if r["priority"] == "HIGH" else "⚡ [MEDIUM PRIORITY]"
+                p_badge = "\U0001f525 [HIGH]" if r["priority"] == "HIGH" else "\u26a1 [MEDIUM]"
                 answer += f"#### {p_badge} {r['title']}\n"
-                answer += f"**Category:** `{r['category']}` | **Impact:** `{r['expected_impact']}`\n\n"
-                answer += f"_{r['data_justification']}_\n\n"
-                answer += "**Next Steps:**\n"
+                answer += f"**Impact:** `{r['expected_impact']}`\n\n_{r['data_justification']}_\n\n"
+                answer += "**Steps:**\n"
                 for step in r["action_steps"]:
                     answer += f"1. {step}\n"
                 answer += "\n"
-
             followups = [
-                "Diagnose why revenue dropped last month",
-                "How do we execute the win-back campaign?",
-                "Which product line has highest margins?",
+                "Diagnose why revenue dropped",
+                "How do we run the win-back campaign?",
+                "What products have highest margins?",
             ]
 
-        # 7. Trends & Daily Patterns
-        elif any(k in q_lower for k in ["trend", "day", "daily", "peak", "highest day", "lowest day", "calendar"]):
+        # 10. Trends & Daily Patterns
+        elif any(k in q_lower for k in [
+            "trend", "daily", "peak", "highest day", "lowest day", "calendar",
+            "this week", "last week", "over time", "by date", "per day",
+            "weekly", "monthly", "best day", "worst day", "when",
+        ]):
             intent = "trend_analysis"
-            peak = trends.get("peak_revenue_day")
-            low = trends.get("lowest_revenue_day")
+            peak       = trends.get("peak_revenue_day")
+            low        = trends.get("lowest_revenue_day")
             total_days = trends.get("total_days_recorded", 0)
-
             executed_sql = (
                 "SELECT DATE(order_date) AS sale_date, COUNT(*) AS orders, "
                 "SUM(total_amount_usd) AS revenue_usd "
@@ -948,26 +1056,23 @@ class AIAgentService:
             )
             if include_sql:
                 sql_results = self.execute_safe_sql(executed_sql)
-
-            answer = (
-                f"### 📈 Daily Revenue & Volume Trends\n\n"
-                f"Across `{total_days}` recorded days in this period:\n\n"
-            )
+            answer = f"### \U0001f4c8 Daily Revenue Trends\n\nAcross `{total_days}` days:\n\n"
             if peak:
-                answer += f"- 🌟 **Peak Revenue Day:** `{peak['date']}` with **${peak['revenue']:,.2f}** ({peak['orders']} orders)\n"
+                answer += f"- \U0001f31f **Peak:** `{peak['date']}` — **${peak['revenue']:,.2f}** ({peak['orders']} orders)\n"
             if low:
-                answer += f"- 📉 **Lowest Revenue Day:** `{low['date']}` with **${low['revenue']:,.2f}** ({low['orders']} orders)\n"
-
-            answer += "\nDaily sales activity fluctuates based on day-of-week promotions and inventory availability.\n"
-
+                answer += f"- \U0001f4c9 **Lowest:** `{low['date']}` — **${low['revenue']:,.2f}** ({low['orders']} orders)\n"
+            answer += "\nSales fluctuate by day-of-week, promotions, and inventory levels.\n"
             followups = [
-                "What was our total revenue for the entire period?",
+                "What was our total revenue?",
                 "Which products sold best on the peak day?",
-                "What recommendations do you have to smooth out slow days?",
+                "How can we boost slow days?",
             ]
 
-        # 8. Data Quality & Pipeline Audit
-        elif any(k in q_lower for k in ["quality", "pipeline", "error", "ingest", "clean", "duplicate", "audit"]):
+        # 11. Data Quality & Pipeline
+        elif any(k in q_lower for k in [
+            "quality", "pipeline", "ingest", "clean", "duplicate", "audit",
+            "bad data", "invalid", "rejected", "missing", "data issue", "error",
+        ]):
             intent = "data_quality_audit"
             executed_sql = (
                 "SELECT record_type, error_type, COUNT(*) AS error_count "
@@ -975,53 +1080,91 @@ class AIAgentService:
                 "ORDER BY error_count DESC LIMIT 5;"
             )
             sql_results = self.execute_safe_sql(executed_sql)
-
-            answer = (
-                "### 🛡️ Data Quality & Ingestion Layer Audit\n\n"
-                "The Person 1 Data Engineering pipeline safely ingests and cleans records while logging errors without data loss:\n\n"
-            )
+            answer = "### \U0001f6e1\ufe0f Data Quality & Pipeline Audit\n\n"
             if sql_results["success"] and sql_results["rows"]:
-                answer += "| Record Type | Error Reason | Occurrences |\n"
-                answer += "| --- | --- | --- |\n"
+                answer += "| Record Type | Error | Count |\n| --- | --- | --- |\n"
                 for err in sql_results["rows"]:
                     answer += f"| `{err['record_type']}` | {err['error_type']} | **{err['error_count']}** |\n"
-                answer += "\nClean records have been safely loaded into production tables with deduplication guarantees.\n"
+                answer += "\nClean records loaded with deduplication guarantees.\n"
             else:
-                answer += "✅ All data quality checks passed with 0 rejected records in the log.\n"
-
+                answer += "\u2705 All data quality checks passed — 0 rejected records.\n"
             followups = [
                 "What are our clean order numbers?",
-                "Show total revenue excluding bad records",
-                "Inspect registered data sources",
+                "Show total revenue",
+                "Inspect registered sources",
             ]
 
-        # 9. Fallback General Question
+        # 12. Overview / Dashboard Summary
+        elif any(k in q_lower for k in [
+            "overview", "summary", "dashboard", "snapshot", "report",
+            "how are we doing", "how is the business", "business health",
+            "kpi", "metrics", "show me", "tell me", "give me", "what is", "how is",
+            "status",
+        ]):
+            intent = "overview_summary"
+            rev      = kpis["revenue"]["current"]
+            orders_cnt = kpis["orders"]["current"]
+            aov      = self._get_aov_metric(kpis)["current"]
+            canc     = kpis["cancellation_rate"]["current"]
+            rep_rate = customer_health.get("repeat_customer_rate_pct", 0.0)
+            at_risk  = customer_health.get("churn_at_risk_count", 0)
+            top_prods = breakdown.get("top_products", [])
+            answer = (
+                f"### \U0001f4ca Business Overview — `{date_range}`\n\n"
+                f"#### \U0001f4b0 Revenue\n"
+                f"- Total: `${rev:,.2f}` | Orders: `{orders_cnt}` | AOV: `${aov:,.2f}` | Cancellations: `{canc}%`\n\n"
+                f"#### \U0001f465 Customers\n"
+                f"- Repeat Rate: `{rep_rate}%` | Churn Risk: `{at_risk}`\n\n"
+            )
+            if top_prods:
+                answer += f"#### \U0001f3c6 Top Product\n- **{top_prods[0]['name']}** — `${top_prods[0]['revenue']:,.2f}`\n\n"
+            alerts = []
+            if canc > 5.0:
+                alerts.append(f"\U0001f534 Cancellation rate `{canc}%` above threshold")
+            if at_risk > 0:
+                alerts.append(f"\U0001f7e1 `{at_risk}` customers at churn risk")
+            if rep_rate < 30:
+                alerts.append(f"\U0001f7e1 Low repeat rate `{rep_rate}%` — consider loyalty program")
+            if alerts:
+                answer += "#### \u26a0\ufe0f Alerts\n" + "\n".join(f"- {a}" for a in alerts)
+            followups = [
+                "Diagnose why metrics changed",
+                "What are our top selling products?",
+                "Give me a strategic action plan",
+            ]
+
+        # 13. Fallback
         else:
             intent = "general_query"
-            rev = kpis["revenue"]["current"]
+            rev        = kpis["revenue"]["current"]
             orders_cnt = kpis["orders"]["current"]
-            aov = self._get_aov_metric(kpis)["current"]
-
+            aov        = self._get_aov_metric(kpis)["current"]
+            top_prods  = breakdown.get("top_products", [])
+            top_prod_name = top_prods[0]["name"] if top_prods else "N/A"
             answer = (
-                f"### 🤖 Business Intelligence Agent\n\n"
-                f"I analyzed your operational database for question: *\"{query}\"*\n\n"
-                f"**Current Period Summary ({date_range}):**\n"
-                f"- **Revenue:** `${rev:,.2f}`\n"
-                f"- **Orders:** `{orders_cnt}`\n"
-                f"- **AOV:** `${aov:,.2f}`\n"
-                f"- **Repeat Customer Rate:** `{customer_health.get('repeat_customer_rate_pct', 0)}%`\n\n"
-                "You can ask me specific questions such as:\n"
-                "- *'Why did revenue decline this month?'*\n"
-                "- *'Which products are our top sellers?'*\n"
-                "- *'Who are our at-risk customers?'*\n"
-                "- *'Give me 3 strategic recommendations to increase sales.'*\n"
-                "- *'Run SQL: SELECT * FROM orders LIMIT 5'*\n"
+                f"### \U0001f916 AI Business Intelligence Agent\n\n"
+                f"I heard: *\"{query}\"*\n\n"
+                f"| Metric | Value |\n| --- | --- |\n"
+                f"| Total Revenue | `${rev:,.2f}` |\n"
+                f"| Completed Orders | `{orders_cnt}` |\n"
+                f"| Average Order Value | `${aov:,.2f}` |\n"
+                f"| Repeat Customer Rate | `{customer_health.get('repeat_customer_rate_pct', 0)}%` |\n"
+                f"| Churn Risk | `{customer_health.get('churn_at_risk_count', 0)}` customers |\n"
+                f"| Top Product | `{top_prod_name}` |\n\n"
+                "\U0001f4a1 Try asking:\n"
+                "- *What is my total revenue?*\n"
+                "- *Show me top selling products*\n"
+                "- *How many orders do I have?*\n"
+                "- *Why did revenue drop?*\n"
+                "- *Give me 3 recommendations to grow*\n"
+                "- *Who are my best customers?*\n"
+                "- *What is my average order value?*\n"
+                "- *Show me daily sales trends*\n"
             )
-
             followups = [
                 "What are our top selling products?",
-                "Why did revenue drop compared to last period?",
-                "Give me actionable recommendations to increase sales",
+                "Why did revenue change last period?",
+                "Give me actionable recommendations",
             ]
 
         # -------------------------------------------------------------------
