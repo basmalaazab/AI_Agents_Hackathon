@@ -60,13 +60,13 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => ` Revenue: $${ctx.raw.toLocaleString()}`,
+          label: (ctx: any) => ` Revenue: ${ctx.raw.toLocaleString()}`,
         },
       },
     },
     scales: {
       x: { grid: { display: false }, ticks: { color: "var(--text-muted)" } },
-      y: { grid: { color: "rgba(148, 163, 184, 0.12)" }, ticks: { color: "var(--text-muted)", callback: (v: any) => `$${v}` } },
+      y: { grid: { color: "rgba(148, 163, 184, 0.12)" }, ticks: { color: "var(--text-muted)", callback: (v: any) => v.toLocaleString() } },
     },
   };
 
@@ -101,7 +101,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => ` Revenue: $${ctx.raw.toLocaleString()}`,
+          label: (ctx: any) => ` Revenue: ${ctx.raw.toLocaleString()}`,
         },
       },
     },

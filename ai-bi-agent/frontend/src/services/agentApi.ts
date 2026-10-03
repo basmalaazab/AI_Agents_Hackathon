@@ -1,5 +1,5 @@
 /**
- * Person 3: AI Business Intelligence Agent API Client.
+ * AI Business Analyst – API client for the agent endpoints.
  */
 import type {
   AgentQueryResponse,

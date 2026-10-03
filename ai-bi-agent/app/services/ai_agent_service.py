@@ -712,6 +712,7 @@ class AIAgentService:
         """
         q_clean = query.strip()
         q_lower = q_clean.lower()
+        is_arabic = bool(re.search(r"[\u0600-\u06FF]", q_clean))
 
         # Gather baseline analytics context
         ai_context = self.analytics_svc.get_ai_context(date_range, source_name)
@@ -761,7 +762,7 @@ class AIAgentService:
         elif any(k in q_lower for k in [
             "revenue", "sales", "earnings", "turnover", "how much did we make",
             "total income", "gross", "profit", "how much money", "what did we make",
-            "money", "income",
+            "money", "income", "إيراد", "ايراد", "مبيعات", "ارباح", "أرباح", "دخل", "فلوس", "كم حققنا", "الأرباح", "الايرادات", "الإيرادات", "المبيعات",
         ]):
             intent = "revenue_analysis"
             rev  = kpis["revenue"]
@@ -801,84 +802,11 @@ class AIAgentService:
                 "How can we increase sales?",
             ]
 
-        # 3. Orders & Volume
-        elif any(k in q_lower for k in [
-            "order", "orders", "how many orders", "volume", "transaction", "purchases",
-            "number of orders", "order count", "order status", "completed orders",
-            "pending", "fulfilled", "how many sales",
-        ]):
-            intent = "orders_analysis"
-            ordr = kpis["orders"]
-            canc = kpis["cancellation_rate"]
-            rev  = kpis["revenue"]
-            order_change_str = (
-                f"{ordr['percentage_change']:+.1f}% vs previous period"
-                if ordr.get("percentage_change") is not None else "No prior period data"
-            )
-            executed_sql = (
-                "SELECT status, COUNT(*) AS count, SUM(total_amount_usd) AS total_usd "
-                "FROM orders GROUP BY status ORDER BY count DESC;"
-            )
-            if include_sql:
-                sql_results = self.execute_safe_sql(executed_sql)
-            answer = (
-                f"### \U0001f4e6 Orders & Volume Breakdown\n\n"
-                f"- **Completed Orders:** `{ordr['current']}` ({order_change_str})\n"
-                f"- **Revenue from Orders:** `${rev['current']:,.2f}`\n"
-                f"- **Cancellation Rate:** `{canc['current']}%`\n\n"
-            )
-            if canc["current"] > 5.0:
-                answer += (
-                    f"\u26a0\ufe0f High cancellation rate `{canc['current']}%` — "
-                    "above 5% healthy threshold.\n\n"
-                )
-            else:
-                answer += "\u2705 Cancellation rate is within a healthy range.\n\n"
-            followups = [
-                "Why is the cancellation rate high?",
-                "Which products have the most orders?",
-                "What is our average order value?",
-            ]
-
-        # 4. Products & Best Sellers
-        elif any(k in q_lower for k in [
-            "product", "best seller", "top seller", "sku", "item", "inventory",
-            "best performing", "top product", "what sells", "most sold",
-            "popular", "best product", "which product",
-        ]):
-            intent = "product_analysis"
-            top_prods = breakdown.get("top_products", [])
-            executed_sql = (
-                "SELECT oi.product_name, SUM(oi.quantity) AS units_sold, "
-                "SUM(oi.line_total) AS revenue_usd "
-                "FROM order_items oi JOIN orders o ON o.id = oi.order_id "
-                "WHERE o.status NOT IN ('cancelled', 'refunded') "
-                "GROUP BY oi.product_name ORDER BY revenue_usd DESC LIMIT 5;"
-            )
-            if include_sql:
-                sql_results = self.execute_safe_sql(executed_sql)
-            answer = "### \U0001f3c6 Top Performing Products\n\n"
-            if top_prods:
-                answer += "| Product | Units Sold | Revenue |\n| --- | --- | --- |\n"
-                for p in top_prods[:5]:
-                    answer += f"| **{p['name']}** | {p['units_sold']} | ${p['revenue']:,.2f} |\n"
-                top_one = top_prods[0]
-                answer += (
-                    f"\n\u2b50 **{top_one['name']}** is your #1 revenue driver "
-                    f"with `${top_one['revenue']:,.2f}` across {top_one['units_sold']} units.\n"
-                )
-            else:
-                answer += "No completed product sales recorded for this period.\n"
-            followups = [
-                "Which category performs best?",
-                "How do we bundle top products to raise AOV?",
-                "Is our top product at risk of running out of stock?",
-            ]
-
-        # 5. Average Order Value
+        # 3. Average Order Value (AOV) - MUST come before general orders
         elif any(k in q_lower for k in [
             "aov", "average order", "average order value", "basket size",
-            "average sale", "order average", "avg order",
+            "average sale", "order average", "avg order", "average transaction",
+            "متوسط الطلب", "قيمة الطلب", "متوسط السلة", "سلة المشتريات",
         ]):
             intent = "aov_analysis"
             aov  = self._get_aov_metric(kpis)
@@ -916,11 +844,88 @@ class AIAgentService:
                 "What are our top selling products?",
             ]
 
+        # 4. Orders & Volume
+        elif any(k in q_lower for k in [
+            "how many orders", "order count", "number of orders", "order status",
+            "volume", "transaction", "purchases", "completed orders",
+            "pending", "fulfilled", "how many sales", "total orders", "orders",
+            "order", "طلبات", "طلب", "عدد الطلبات", "طلبيات", "كم طلب", "المعاملات",
+        ]):
+            intent = "orders_analysis"
+            ordr = kpis["orders"]
+            canc = kpis["cancellation_rate"]
+            rev  = kpis["revenue"]
+            order_change_str = (
+                f"{ordr['percentage_change']:+.1f}% vs previous period"
+                if ordr.get("percentage_change") is not None else "No prior period data"
+            )
+            executed_sql = (
+                "SELECT status, COUNT(*) AS count, SUM(total_amount_usd) AS total_usd "
+                "FROM orders GROUP BY status ORDER BY count DESC;"
+            )
+            if include_sql:
+                sql_results = self.execute_safe_sql(executed_sql)
+            answer = (
+                f"### \U0001f4e6 Orders & Volume Breakdown\n\n"
+                f"- **Completed Orders:** `{ordr['current']}` ({order_change_str})\n"
+                f"- **Revenue from Orders:** `${rev['current']:,.2f}`\n"
+                f"- **Cancellation Rate:** `{canc['current']}%`\n\n"
+            )
+            if canc["current"] > 5.0:
+                answer += (
+                    f"\u26a0\ufe0f High cancellation rate `{canc['current']}%` — "
+                    "above 5% healthy threshold.\n\n"
+                )
+            else:
+                answer += "\u2705 Cancellation rate is within a healthy range.\n\n"
+            followups = [
+                "Why is the cancellation rate high?",
+                "Which products have the most orders?",
+                "What is our average order value?",
+            ]
+
+        # 5. Products & Best Sellers
+        elif any(k in q_lower for k in [
+            "product", "best seller", "top seller", "sku", "item", "inventory",
+            "best performing", "top product", "what sells", "most sold",
+            "popular", "best product", "which product",
+            "منتج", "منتجات", "الأكثر مبيعا", "الاكثر مبيعا", "أفضل منتج", "افضل منتج", "السلع", "السلعة", "المخزون",
+        ]):
+            intent = "product_analysis"
+            top_prods = breakdown.get("top_products", [])
+            executed_sql = (
+                "SELECT oi.product_name, SUM(oi.quantity) AS units_sold, "
+                "SUM(oi.line_total) AS revenue_usd "
+                "FROM order_items oi JOIN orders o ON o.id = oi.order_id "
+                "WHERE o.status NOT IN ('cancelled', 'refunded') "
+                "GROUP BY oi.product_name ORDER BY revenue_usd DESC LIMIT 5;"
+            )
+            if include_sql:
+                sql_results = self.execute_safe_sql(executed_sql)
+            answer = "### \U0001f3c6 Top Performing Products\n\n"
+            if top_prods:
+                answer += "| Product | Units Sold | Revenue |\n| --- | --- | --- |\n"
+                for p in top_prods[:5]:
+                    answer += f"| **{p['name']}** | {p['units_sold']} | ${p['revenue']:,.2f} |\n"
+                top_one = top_prods[0]
+                answer += (
+                    f"\n\u2b50 **{top_one['name']}** is your #1 revenue driver "
+                    f"with `${top_one['revenue']:,.2f}` across {top_one['units_sold']} units.\n"
+                )
+            else:
+                answer += "No completed product sales recorded for this period.\n"
+            followups = [
+                "Which category performs best?",
+                "How do we bundle top products to raise AOV?",
+                "Is our top product at risk of running out of stock?",
+            ]
+
         # 6. Customers & Retention
         elif any(k in q_lower for k in [
             "customer", "churn", "repeat", "loyalty", "ltv", "retention",
             "returning", "who are", "top customer", "best customer",
             "lifetime value", "how many customer", "at risk", "win back", "winback",
+            "عميل", "عملاء", "ولاء", "زبائن", "زبون", "استبقاء", "خسارة العملاء", "الاحتفاظ",
         ]):
             intent = "customer_analysis"
             rep_rate = customer_health.get("repeat_customer_rate_pct", 0.0)
@@ -961,6 +966,7 @@ class AIAgentService:
         elif any(k in q_lower for k in [
             "category", "categories", "segment", "department", "product type",
             "collection", "breakdown by category",
+            "فئة", "فئات", "تصنيف", "تصنيفات", "أقسام", "اقسام",
         ]):
             intent = "category_analysis"
             top_cats = breakdown.get("top_categories", [])
@@ -995,6 +1001,7 @@ class AIAgentService:
             "why", "drop", "decline", "fall", "issue", "problem", "diagnos",
             "alert", "anomaly", "cancellation", "what went wrong", "explain",
             "cause", "reason", "spike", "sudden", "unexpected",
+            "لماذا", "انخفاض", "مشكلة", "سبب", "انخفضت", "تراجعت", "تراجع", "خلل", "لما",
         ]):
             intent = "anomaly_diagnosis"
             diagnoses = self.diagnose_anomalies(date_range, source_name)
@@ -1020,6 +1027,7 @@ class AIAgentService:
             "recommend", "strategy", "action", "grow", "plan", "increase", "advice",
             "what should we do", "what should i do", "how to improve", "how can we",
             "suggestions", "tips", "next steps", "improve", "optimize",
+            "توصيات", "توصية", "اقتراح", "اقتراحات", "خطة", "كيف أزيد", "كيف احسن", "نصائح", "استراتيجية", "ماذا أفعل", "ماذا افعل",
         ]):
             intent = "recommendations"
             recs_data = self.generate_recommendations(date_range, source_name)
@@ -1043,6 +1051,7 @@ class AIAgentService:
             "trend", "daily", "peak", "highest day", "lowest day", "calendar",
             "this week", "last week", "over time", "by date", "per day",
             "weekly", "monthly", "best day", "worst day", "when",
+            "اتجاه", "يومي", "تاريخ", "الأيام", "الايام", "مخطط", "رسم بياني",
         ]):
             intent = "trend_analysis"
             peak       = trends.get("peak_revenue_day")
@@ -1072,6 +1081,7 @@ class AIAgentService:
         elif any(k in q_lower for k in [
             "quality", "pipeline", "ingest", "clean", "duplicate", "audit",
             "bad data", "invalid", "rejected", "missing", "data issue", "error",
+            "جودة", "خطأ", "أخطاء", "بيانات مكررة", "مرفوضة",
         ]):
             intent = "data_quality_audit"
             executed_sql = (
@@ -1099,7 +1109,7 @@ class AIAgentService:
             "overview", "summary", "dashboard", "snapshot", "report",
             "how are we doing", "how is the business", "business health",
             "kpi", "metrics", "show me", "tell me", "give me", "what is", "how is",
-            "status",
+            "status", "ملخص", "نظرة عامة", "تقرير", "أداء الشركة", "كيف العمل", "الوضع المالي", "مؤشرات",
         ]):
             intent = "overview_summary"
             rev      = kpis["revenue"]["current"]
@@ -1161,11 +1171,21 @@ class AIAgentService:
                 "- *What is my average order value?*\n"
                 "- *Show me daily sales trends*\n"
             )
-            followups = [
-                "What are our top selling products?",
-                "Why did revenue change last period?",
-                "Give me actionable recommendations",
-            ]
+        # If Arabic query detected, generate response in clean, professional Arabic
+        if is_arabic:
+            ar_answer, ar_followups = self._generate_arabic_response(
+                intent=intent,
+                kpis=kpis,
+                breakdown=breakdown,
+                customer_health=customer_health,
+                trends=trends,
+                date_range=date_range,
+                query=q_clean,
+                executed_sql=executed_sql,
+                sql_results=sql_results,
+            )
+            answer = ar_answer
+            followups = ar_followups
 
         # -------------------------------------------------------------------
         # LLM Synthesis (if API key is configured)
@@ -1259,6 +1279,142 @@ class AIAgentService:
                 logger.debug("Gemini call exception: %s", e)
 
         return None
+
+    def _generate_arabic_response(
+        self,
+        intent: str,
+        kpis: Dict[str, Any],
+        breakdown: Dict[str, Any],
+        customer_health: Dict[str, Any],
+        trends: Dict[str, Any],
+        date_range: str,
+        query: str,
+        executed_sql: Optional[str] = None,
+        sql_results: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, List[str]]:
+        rev = kpis.get("revenue", {})
+        ordr = kpis.get("orders", {})
+        aov = self._get_aov_metric(kpis)
+        canc = kpis.get("cancellation_rate", {})
+        top_prods = breakdown.get("top_products", [])
+        top_cats = breakdown.get("top_categories", [])
+
+        rev_val = rev.get("current", 0)
+        rev_pct = rev.get("percentage_change")
+        rev_change_str = (
+            f"{rev_pct:+.1f}% مقارنة بالفترة السابقة"
+            if rev_pct is not None else "لا تتوفر بيانات سابقة"
+        )
+
+        if intent == "revenue_analysis":
+            answer = (
+                f"### 💰 تحليل الإيرادات والمبيعات\n\n"
+                f"الفترة المحددة: `{date_range}`\n\n"
+                f"- **إجمالي الإيرادات:** `{rev_val:,.2f}` ({rev_change_str})\n"
+                f"- **الطلبات المكتملة:** `{ordr.get('current', 0)}` طلب\n"
+                f"- **متوسط قيمة الطلب:** `{aov.get('current', 0):,.2f}`\n"
+                f"- **معدل إلغاء الطلبات:** `{canc.get('current', 0)}%`\n\n"
+            )
+            if rev_pct is not None and rev_pct < 0:
+                answer += f"⚠️ تراجعت الإيرادات بنسبة `{abs(rev_pct)}%` مقارنة بالفترة السابقة.\n\n"
+            elif rev_pct is not None and rev_pct > 0:
+                answer += f"🚀 نمت الإيرادات بنسبة `{rev_pct}%` مقارنة بالفترة السابقة.\n\n"
+            followups = [
+                "ما هي المنتجات الأكثر مبيعاً؟",
+                "لماذا تغيرت الإيرادات؟",
+                "ما هي التوصيات لزيادة المبيعات؟",
+            ]
+            return answer, followups
+
+        elif intent == "product_analysis":
+            answer = "### 🏆 المنتجات الأكثر مبيعاً\n\n"
+            if top_prods:
+                answer += "| المنتج | الوحدات المباعة | الإيرادات |\n| --- | --- | --- |\n"
+                for p in top_prods[:5]:
+                    answer += f"| **{p['name']}** | {p['units_sold']} | {p['revenue']:,.2f} |\n"
+                top_one = top_prods[0]
+                answer += f"\n⭐ المنتج الأول في المبيعات هو **{top_one['name']}** بإيرادات `{top_one['revenue']:,.2f}`.\n"
+            else:
+                answer += "لا تتوفر سجلات مبيعات منتجات في هذه الفترة.\n"
+            followups = [
+                "ما هي الفئات الأكثر مبيعاً؟",
+                "ما إجمالي الإيرادات؟",
+            ]
+            return answer, followups
+
+        elif intent == "customer_analysis":
+            rep_rate = customer_health.get("repeat_customer_rate_pct", 0.0)
+            at_risk = customer_health.get("churn_at_risk_count", 0)
+            active = customer_health.get("active_in_period", 0)
+            answer = (
+                f"### 👥 صحة قاعدة العملاء والولاء\n\n"
+                f"- **معدل تكرار الشراء:** `{rep_rate}%`\n"
+                f"- **العملاء النشطون:** `{active}`\n"
+                f"- **العملاء المعرضون للانقطاع:** `{at_risk}` عميل\n\n"
+            )
+            followups = [
+                "من هم أكثر العملاء إنفاقاً؟",
+                "كيف نرفع معدل الشراء المتكرر؟",
+            ]
+            return answer, followups
+
+        elif intent == "anomaly_diagnosis":
+            diagnoses = self.diagnose_anomalies(date_range)
+            answer = "### 🔬 تشخيص الأسباب الجذرية للمؤشرات\n\n"
+            for d in diagnoses:
+                badge = "🔴" if d["severity"] == "danger" else "🟡"
+                answer += f"#### {badge} {d['title']}\n{d['summary']}\n\n"
+                answer += "**الأسباب المحددة:**\n"
+                for rc in d["root_causes"]:
+                    answer += f"- {rc}\n"
+                answer += "\n**الإجراءات المقترحة:**\n"
+                for act in d["mitigation_actions"]:
+                    answer += f"- {act}\n"
+                answer += "\n"
+            followups = [
+                "ما هي التوصيات للتحسين؟",
+                "ما هي المنتجات الأكثر مبيعاً؟",
+            ]
+            return answer, followups
+
+        elif intent == "recommendations":
+            recs_data = self.generate_recommendations(date_range)
+            answer = f"### 📋 خطة العمل والتوصيات الاستراتيجية\n\n{recs_data.get('executive_summary', '')}\n\n"
+            for r in recs_data.get("recommendations", [])[:3]:
+                p_badge = "🔥 [أولوية قصوى]" if r["priority"] == "HIGH" else "⚡ [أولوية متوسطة]"
+                answer += f"#### {p_badge} {r['title']}\n"
+                answer += f"**الأثر المتوقع:** `{r['expected_impact']}`\n\n_{r['data_justification']}_\n\n"
+                answer += "**خطوات التنفيذ:**\n"
+                for step in r["action_steps"]:
+                    answer += f"1. {step}\n"
+                answer += "\n"
+            followups = [
+                "ما هي المنتجات الأكثر مبيعاً؟",
+                "لماذا تراجعت الإيرادات؟",
+            ]
+            return answer, followups
+
+        else:
+            answer = (
+                f"### 🤖 المساعد التحليلي الذكي\n\n"
+                f"السؤال: *\"{query}\"*\n\n"
+                f"| المؤشر | القيمة |\n| --- | --- |\n"
+                f"| إجمالي الإيرادات | `{rev_val:,.2f}` |\n"
+                f"| الطلبات المكتملة | `{ordr.get('current', 0)}` |\n"
+                f"| متوسط قيمة الطلب | `{aov.get('current', 0):,.2f}` |\n"
+                f"| معدل تكرار الشراء | `{customer_health.get('repeat_customer_rate_pct', 0)}%` |\n"
+                f"| عملاء في دائرة الخطر | `{customer_health.get('churn_at_risk_count', 0)}` |\n\n"
+                f"💡 أسئلة مقترحة:\n"
+                f"- *كم إجمالي الإيرادات؟*\n"
+                f"- *ما هي المنتجات الأكثر مبيعاً؟*\n"
+                f"- *ما هي التوصيات لزيادة الأرباح؟*\n"
+                f"- *لماذا انخفضت المبيعات؟*\n"
+            )
+            followups = [
+                "ما هي المنتجات الأكثر مبيعاً؟",
+                "ما هي التوصيات لزيادة الأرباح؟",
+            ]
+            return answer, followups
 
     # -----------------------------------------------------------------------
     # Contextual Suggestions

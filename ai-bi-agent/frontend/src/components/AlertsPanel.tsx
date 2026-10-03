@@ -1,25 +1,52 @@
 import React from "react";
-import { AlertTriangle, AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { AlertTriangle, AlertCircle, CheckCircle2, Info, WifiOff } from "lucide-react";
 import type { BusinessAlert } from "../types/analytics";
-
-
 
 interface AlertsPanelProps {
   alerts: BusinessAlert[];
   isLoading: boolean;
+  apiOffline?: boolean;
 }
 
-export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading }) => {
-  if (isLoading || !alerts) {
-    return null;
+export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, apiOffline }) => {
+  // While loading, render nothing (KPICards shows its own skeleton)
+  if (isLoading) return null;
+
+  // If the API is offline we should not show "all KPIs normal"
+  if (apiOffline) {
+    return (
+      <div
+        className="glass-card"
+        style={{
+          padding: "14px 20px",
+          marginBottom: "24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          borderColor: "rgba(244, 63, 94, 0.3)",
+        }}
+        role="status"
+        aria-live="polite"
+      >
+        <WifiOff size={18} color="var(--accent-rose)" aria-hidden="true" />
+        <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+          Analytics service is not reachable. Business alerts cannot be loaded.
+        </span>
+      </div>
+    );
   }
 
-  if (alerts.length === 0) {
+  if (!alerts || alerts.length === 0) {
     return (
-      <div className="glass-card" style={{ padding: "16px 24px", marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px" }}>
-        <CheckCircle2 size={20} color="var(--accent-emerald)" />
+      <div
+        className="glass-card"
+        style={{ padding: "14px 20px", marginBottom: "24px", display: "flex", alignItems: "center", gap: "10px" }}
+        role="status"
+        aria-live="polite"
+      >
+        <CheckCircle2 size={18} color="var(--accent-emerald)" aria-hidden="true" />
         <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-          All operational KPIs and order performance metrics are within normal baseline ranges.
+          No alerts detected for the selected period. Business metrics are within expected ranges.
         </span>
       </div>
     );
@@ -28,57 +55,95 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading }) =
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
       case "danger":
-        return <AlertTriangle size={20} color="var(--accent-rose)" />;
+        return <AlertTriangle size={18} color="var(--accent-rose)" aria-hidden="true" />;
       case "warning":
-        return <AlertCircle size={20} color="var(--accent-amber)" />;
+        return <AlertCircle size={18} color="var(--accent-amber)" aria-hidden="true" />;
       case "success":
-        return <CheckCircle2 size={20} color="var(--accent-emerald)" />;
+        return <CheckCircle2 size={18} color="var(--accent-emerald)" aria-hidden="true" />;
       default:
-        return <Info size={20} color="var(--accent-indigo)" />;
+        return <Info size={18} color="var(--accent-indigo)" aria-hidden="true" />;
     }
   };
 
   const getSeverityBorder = (severity: string) => {
     switch (severity) {
-      case "danger":
-        return "1px solid rgba(244, 63, 94, 0.4)";
-      case "warning":
-        return "1px solid rgba(245, 158, 11, 0.4)";
-      case "success":
-        return "1px solid rgba(16, 185, 129, 0.4)";
-      default:
-        return "1px solid rgba(99, 102, 241, 0.4)";
+      case "danger":  return "1px solid rgba(244, 63, 94, 0.35)";
+      case "warning": return "1px solid rgba(245, 158, 11, 0.35)";
+      case "success": return "1px solid rgba(16, 185, 129, 0.35)";
+      default:        return "1px solid rgba(99, 102, 241, 0.35)";
     }
   };
 
   return (
-    <div className="glass-card" style={{ padding: "20px 24px", marginBottom: "24px" }}>
-      <h3 style={{ fontSize: "1.05rem", fontWeight: 700, marginBottom: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
-        <AlertTriangle size={18} color="var(--accent-amber)" /> Business Intelligence Alerts & Signal Detector
-      </h3>
+    <section
+      className="glass-card"
+      style={{ padding: "18px 22px", marginBottom: "24px" }}
+      aria-labelledby="alerts-heading"
+    >
+      <h2
+        id="alerts-heading"
+        style={{
+          fontSize: "0.875rem",
+          fontWeight: 700,
+          marginBottom: "12px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "var(--text-primary)",
+        }}
+      >
+        <AlertTriangle size={16} color="var(--accent-amber)" aria-hidden="true" />
+        Business Alerts
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: "0.72rem",
+            padding: "2px 8px",
+            borderRadius: "10px",
+            background: "rgba(244, 63, 94, 0.12)",
+            color: "var(--accent-rose)",
+            fontWeight: 600,
+          }}
+        >
+          {alerts.length} active
+        </span>
+      </h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px" }}>
+      <div
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "10px" }}
+        role="list"
+        aria-label="Business alerts"
+      >
         {alerts.map((a) => (
           <div
             key={a.id}
+            role="listitem"
             style={{
-              padding: "14px 16px",
-              borderRadius: "12px",
+              padding: "12px 14px",
+              borderRadius: "10px",
               background: "var(--card-subtle-bg)",
               border: getSeverityBorder(a.severity),
               display: "flex",
               alignItems: "flex-start",
-              gap: "12px",
+              gap: "10px",
             }}
           >
-            <div style={{ marginTop: "2px" }}>{getSeverityIcon(a.severity)}</div>
-            <div>
-              <h4 style={{ fontSize: "0.9rem", fontWeight: 700, marginBottom: "4px" }}>{a.title}</h4>
-              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.4 }}>{a.message}</p>
+            <div style={{ marginTop: "1px", flexShrink: 0 }}>{getSeverityIcon(a.severity)}</div>
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ fontSize: "0.875rem", fontWeight: 700, marginBottom: "3px" }}>{a.title}</h3>
+              <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: 1.45, margin: 0 }}>
+                {a.message}
+              </p>
+              {(a.change_pct !== undefined || a.value !== undefined) && (
+                <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                  {a.metric && <>Metric: <strong>{a.metric}</strong></>}
+                  {a.change_pct !== undefined && <> · Change: <strong>{a.change_pct > 0 ? "+" : ""}{a.change_pct}%</strong></>}
+                </p>
+              )}
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 };

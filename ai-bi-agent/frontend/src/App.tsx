@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Header } from "./components/Header";
+import type { NavSection } from "./components/Header";
 import { FilterBar } from "./components/FilterBar";
 import { KPICards } from "./components/KPICards";
 import { RevenueTrendChart } from "./components/RevenueTrendChart";
@@ -7,7 +8,9 @@ import { CategoryBreakdownChart } from "./components/CategoryBreakdownChart";
 import { TopPerformersTable } from "./components/TopPerformersTable";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { AIChatCopilotModal } from "./components/AIChatCopilotModal";
+import { AIBriefingPanel } from "./components/AIBriefingPanel";
 import { DataSourcesPanel } from "./components/DataSourcesPanel";
+import { ActivityPanel } from "./components/ActivityPanel";
 import {
   fetchOverviewKPIs,
   fetchRevenueTrends,
@@ -29,13 +32,16 @@ import type {
   BusinessAlert,
 } from "./types/analytics";
 
-import { AlertCircle, RefreshCw } from "lucide-react";
+import { RefreshCw, WifiOff } from "lucide-react";
 
 export const App: React.FC = () => {
-  // Theme state
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  // Theme state — light is the default for a professional SaaS look
+  const [theme, setTheme] = useState<"dark" | "light">("light");
 
-  // Filters state
+  // Navigation
+  const [activeSection, setActiveSection] = useState<NavSection>("overview");
+
+  // Filters
   const [dateRange, setDateRange] = useState<string>("30d");
   const [sourceName, setSourceName] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
@@ -55,14 +61,24 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
 
-  // Toggle theme
+  // Apply theme to document
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
     document.documentElement.setAttribute("data-theme", nextTheme);
   };
 
-  // Fetch all analytics data
+  // Set initial theme on mount
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, []);
+
+  // Open AI Analyst modal directly
+  const handleOpenAIModal = () => {
+    setIsAIModalOpen(true);
+  };
+
+  // Fetch all analytics and data source metadata
   const loadAnalytics = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -74,6 +90,8 @@ export const App: React.FC = () => {
         customersRes,
         alertsRes,
         aiCtxRes,
+        sourcesRes,
+        summaryRes,
       ] = await Promise.all([
         fetchOverviewKPIs(dateRange, sourceName, startDate, endDate),
         fetchRevenueTrends(dateRange, sourceName, startDate, endDate),
@@ -81,6 +99,8 @@ export const App: React.FC = () => {
         fetchCustomerAnalytics(dateRange, sourceName, startDate, endDate),
         fetchBusinessAlerts(dateRange, sourceName, startDate, endDate),
         fetchAIContext(dateRange, sourceName, startDate, endDate),
+        fetchDataSources().catch(() => []),
+        fetchPipelineSummary().catch(() => null),
       ]);
 
       setOverview(overviewRes);
@@ -89,119 +109,179 @@ export const App: React.FC = () => {
       setCustomers(customersRes);
       setAlerts(alertsRes);
       setAiContextData(aiCtxRes);
+      setDataSources(sourcesRes);
+      setPipelineSummary(summaryRes);
     } catch (err: any) {
       console.error("Error loading analytics:", err);
       setError(
         err.message ||
-          "Failed to connect to Analytics API at http://localhost:8000. Please check backend status."
+          "Could not connect to the analytics backend at http://localhost:8000. Check that the backend is running."
       );
     } finally {
       setIsLoading(false);
     }
   }, [dateRange, sourceName, startDate, endDate]);
 
-  const loadSourcesAndSummary = useCallback(async () => {
-    try {
-      const [srcs, summary] = await Promise.all([
-        fetchDataSources(),
-        fetchPipelineSummary(),
-      ]);
-      setDataSources(srcs);
-      setPipelineSummary(summary);
-    } catch (err) {
-      console.debug("Source catalog unavailable", err);
-    }
-  }, []);
-
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
 
-  useEffect(() => {
-    loadSourcesAndSummary();
-  }, [loadSourcesAndSummary]);
-
-  const handleIngestComplete = useCallback(async () => {
-    await loadSourcesAndSummary();
+  const handleIngestComplete = async () => {
     await loadAnalytics();
-  }, [loadSourcesAndSummary, loadAnalytics]);
+  };
 
   const exportUrl = getExportCSVUrl(dateRange, sourceName, startDate, endDate);
+  const apiOffline = !isLoading && error !== null;
 
   return (
-    <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px 16px 48px" }}>
-      {/* Header */}
+    <div
+      style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px 16px 64px" }}
+      role="main"
+    >
+      {/* ── Header + Navigation ───────────────────────────────── */}
       <Header
         theme={theme}
         onToggleTheme={toggleTheme}
-        onOpenAIModal={() => setIsAIModalOpen(true)}
+        onOpenAIModal={handleOpenAIModal}
         exportUrl={exportUrl}
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
       />
 
-      {/* Filter Bar */}
-      <FilterBar
-        dateRange={dateRange}
-        onSelectDateRange={setDateRange}
-        sourceName={sourceName}
-        onSelectSourceName={setSourceName}
-        startDate={startDate}
-        onStartDateChange={setStartDate}
-        endDate={endDate}
-        onEndDateChange={setEndDate}
-        onRefresh={loadAnalytics}
-        isLoading={isLoading}
-        sources={dataSources}
-      />
-
-      <DataSourcesPanel
-        sources={dataSources}
-        summary={pipelineSummary}
-        onSourcesChanged={handleIngestComplete}
-      />
-
-      {/* Error Fallback Banner */}
+      {/* ── API Error / Offline Banner ────────────────────────── */}
       {error && (
-        <div
-          className="glass-card"
-          style={{
-            padding: "16px 20px",
-            marginBottom: "24px",
-            borderColor: "rgba(244, 63, 94, 0.4)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <AlertCircle size={20} color="var(--accent-rose)" />
-            <span style={{ fontSize: "0.9rem", color: "#fb7185" }}>{error}</span>
+        <div className="api-error-banner" role="alert" aria-live="assertive">
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <WifiOff size={18} className="error-icon" aria-hidden="true" />
+            <div>
+              <strong>Backend not reachable.</strong>{" "}
+              <span style={{ color: "var(--text-secondary)" }}>{error}</span>
+            </div>
           </div>
-          <button className="btn btn-secondary" onClick={loadAnalytics} style={{ fontSize: "0.8rem" }}>
-            <RefreshCw size={14} /> Retry Connection
+          <button
+            className="btn btn-secondary"
+            onClick={loadAnalytics}
+            style={{ fontSize: "0.8rem", flexShrink: 0 }}
+            aria-label="Retry connecting to analytics backend"
+          >
+            <RefreshCw size={14} aria-hidden="true" /> Retry
           </button>
         </div>
       )}
 
-      {/* Business Alerts & Anomalies */}
-      <AlertsPanel alerts={alerts} isLoading={isLoading} />
+      {/* ── OVERVIEW SECTION ─────────────────────────────────── */}
+      {activeSection === "overview" && (
+        <section aria-label="Business overview">
+          {/* AI Briefing Panel — primary feature */}
+          <AIBriefingPanel
+            aiData={aiContextData}
+            dateRange={dateRange}
+            sourceName={sourceName}
+            onOpenFullModal={handleOpenAIModal}
+            apiOffline={apiOffline}
+          />
 
-      {/* Overview Headline KPI Cards */}
-      <KPICards data={overview} isLoading={isLoading} />
+          {/* Filter Bar */}
+          <FilterBar
+            dateRange={dateRange}
+            onSelectDateRange={setDateRange}
+            sourceName={sourceName}
+            onSelectSourceName={setSourceName}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            onRefresh={loadAnalytics}
+            isLoading={isLoading}
+            sources={dataSources}
+          />
 
-      {/* Revenue & Sales Time-Series Chart */}
-      <RevenueTrendChart data={trends} isLoading={isLoading} />
+          {/* Business Alerts */}
+          <AlertsPanel alerts={alerts} isLoading={isLoading} apiOffline={apiOffline} />
 
-      {/* Category & Channel Share Breakdown Charts */}
-      <CategoryBreakdownChart data={breakdown} isLoading={isLoading} />
+          {/* KPI Cards */}
+          <KPICards data={overview} isLoading={isLoading} />
 
-      {/* Top Performing Products & High LTV Customers */}
-      <TopPerformersTable
-        topProducts={breakdown?.top_products || []}
-        topCustomers={customers?.top_customers || []}
-        isLoading={isLoading}
-      />
+          {/* Revenue Trend Chart */}
+          <RevenueTrendChart data={trends} isLoading={isLoading} />
 
-      {/* Person 3 AI Business Intelligence Copilot & Context Modal */}
+          {/* Category & Platform Breakdown */}
+          <CategoryBreakdownChart data={breakdown} isLoading={isLoading} />
+
+          {/* Top Products & Top Customers */}
+          <TopPerformersTable
+            topProducts={breakdown?.top_products || []}
+            topCustomers={customers?.top_customers || []}
+            isLoading={isLoading}
+          />
+        </section>
+      )}
+
+      {/* ── AI ANALYST SECTION ───────────────────────────────── */}
+      {activeSection === "analyst" && (
+        <section aria-label="AI Analyst workspace">
+          {/* Re-use the briefing panel as the entry point */}
+          <AIBriefingPanel
+            aiData={aiContextData}
+            dateRange={dateRange}
+            sourceName={sourceName}
+            onOpenFullModal={handleOpenAIModal}
+            apiOffline={apiOffline}
+          />
+
+          {/* Filter Bar */}
+          <FilterBar
+            dateRange={dateRange}
+            onSelectDateRange={setDateRange}
+            sourceName={sourceName}
+            onSelectSourceName={setSourceName}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            onRefresh={loadAnalytics}
+            isLoading={isLoading}
+            sources={dataSources}
+          />
+
+          {/* Prompt to open the full modal */}
+          <div
+            className="glass-card"
+            style={{ padding: "32px", textAlign: "center" }}
+          >
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "8px" }}>
+              Explore Deep Analytical Reasoning &amp; Diagnostics
+            </h3>
+            <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", marginBottom: "20px", maxWidth: "560px", margin: "0 auto 20px" }}>
+              Open the full AI Business Analyst console for Strategic Action Plans, Anomaly Root-Cause Analysis,
+              and Safe Read-Only SQL Inspection.
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={handleOpenAIModal}
+              style={{ fontSize: "0.9rem", padding: "10px 24px", background: "var(--accent-indigo)", color: "#ffffff" }}
+            >
+              Launch Full AI Analyst
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* ── DATA SOURCES SECTION ─────────────────────────────── */}
+      {activeSection === "sources" && (
+        <DataSourcesPanel
+          sources={dataSources}
+          summary={pipelineSummary}
+          onSourcesChanged={handleIngestComplete}
+        />
+      )}
+
+      {/* ── ACTIVITY SECTION ─────────────────────────────────── */}
+      {activeSection === "activity" && (
+        <ActivityPanel apiOffline={apiOffline} />
+      )}
+
+      {/* ── AI Full Analyst Modal ────────────────────────────── */}
       <AIChatCopilotModal
         isOpen={isAIModalOpen}
         onClose={() => setIsAIModalOpen(false)}
@@ -209,39 +289,8 @@ export const App: React.FC = () => {
         dateRange={dateRange}
         sourceName={sourceName}
       />
-
-      {/* Floating AI Agent Quick Access Button */}
-      <button
-        onClick={() => setIsAIModalOpen(true)}
-        style={{
-          position: "fixed",
-          bottom: "24px",
-          right: "24px",
-          padding: "12px 20px",
-          borderRadius: "30px",
-          background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-          color: "#fff",
-          border: "none",
-          fontWeight: 600,
-          fontSize: "0.9rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          boxShadow: "0 8px 24px rgba(99, 102, 241, 0.5)",
-          cursor: "pointer",
-          zIndex: 99,
-          transition: "transform 0.2s, box-shadow 0.2s",
-        }}
-        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.05)")}
-        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
-        title="Open AI Agent Copilot"
-      >
-        <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "#34d399", display: "inline-block" }}></span>
-        <span>Ask AI Copilot</span>
-      </button>
     </div>
   );
 };
 
 export default App;
-

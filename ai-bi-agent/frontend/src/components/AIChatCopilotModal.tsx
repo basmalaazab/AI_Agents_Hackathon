@@ -87,13 +87,13 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
           {
             id: "welcome-msg",
             role: "assistant",
-            content: `👋 **Hello! I'm your AI Business Intelligence Agent.**\n\nI have structured, real-time access to your operational business data for period \`${dateRange}\`.\n\n- **Current Revenue:** $${rev.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n- **Completed Orders:** ${ords}\n- **Security Guarantee:** Safe, strictly read-only SQL querying with automated guardrails.\n\nAsk me any question below or click one of the suggested prompts!`,
+            content: `Hello! I'm your AI Business Analyst.\n\nI have access to your business data for the **${dateRange}** period.\n\n- **Revenue:** ${typeof rev === "number" ? rev.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "Not available"}\n- **Orders:** ${typeof ords === "number" ? ords.toLocaleString() : "Not available"}\n\nAsk me about your sales performance, customers, or products. I'll explain what the data shows and why it matters.`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             suggested_followups: [
               "What is our total revenue and sales trend?",
               "Which products are our top sellers?",
-              "Why did revenue decline this period?",
-              "Give me 3 prioritized recommendations to increase sales",
+              "Why did revenue change this period?",
+              "Give me 3 recommendations to increase revenue",
             ],
           },
         ]);
@@ -270,7 +270,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <h3 style={{ fontSize: "1.2rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
-                  Person 3 — AI Business Intelligence Agent
+                  AI Business Analyst
                 </h3>
                 <span
                   style={{
@@ -417,7 +417,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             }}
           >
             <FileText size={16} color={activeTab === "raw" ? "var(--accent-indigo)" : "currentColor"} />
-            Raw Context (Person 2)
+            Analytics Payload
           </button>
         </div>
 
@@ -883,10 +883,10 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         {/* Footer */}
         <div style={{ padding: "14px 24px", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--modal-sub-header)" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            Powered by Person 3 AI Agent • Safe SQL & Analytical Reasoning Engine
+            AI Analyst · Safe read-only SQL · Analytical reasoning engine
           </span>
           <button className="btn btn-primary" onClick={onClose} style={{ fontSize: "0.85rem" }}>
-            Close Agent
+            Close
           </button>
         </div>
       </div>

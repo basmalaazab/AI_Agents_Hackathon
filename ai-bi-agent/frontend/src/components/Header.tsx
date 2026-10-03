@@ -1,84 +1,127 @@
 import React from "react";
-import { Download, Bot, Moon, Sun, BarChart3 } from "lucide-react";
+import { Download, Bot, Moon, Sun, BarChart3, LayoutDashboard, Brain, Database, Activity } from "lucide-react";
+
+export type NavSection = "overview" | "analyst" | "sources" | "activity";
 
 interface HeaderProps {
   theme: "dark" | "light";
   onToggleTheme: () => void;
   onOpenAIModal: () => void;
   exportUrl: string;
+  activeSection: NavSection;
+  onSectionChange: (section: NavSection) => void;
 }
+
+const NAV_TABS: { id: NavSection; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+  { id: "overview",  label: "Overview",     Icon: LayoutDashboard },
+  { id: "analyst",   label: "AI Analyst",   Icon: Brain },
+  { id: "sources",   label: "Data Sources", Icon: Database },
+  { id: "activity",  label: "Activity",     Icon: Activity },
+];
 
 export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   onOpenAIModal,
   exportUrl,
+  activeSection,
+  onSectionChange,
 }) => {
   return (
-    <header className="glass-card" style={{ padding: "16px 24px", marginBottom: "24px" }}>
+    <header
+      className="glass-card"
+      style={{ padding: "16px 24px", marginBottom: "24px" }}
+      role="banner"
+    >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-        {/* Brand & Subtitle */}
+        {/* Brand */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <div
+            aria-hidden="true"
             style={{
-              width: "44px",
-              height: "44px",
-              borderRadius: "12px",
+              width: "40px",
+              height: "40px",
+              borderRadius: "10px",
               background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(99, 102, 241, 0.4)",
+              flexShrink: 0,
             }}
           >
-            <BarChart3 size={24} color="white" />
+            <BarChart3 size={22} color="white" />
           </div>
           <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <h1 style={{ fontSize: "1.35rem", fontWeight: 700 }}>AI BI Analytics Dashboard</h1>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(16, 185, 129, 0.15)", padding: "2px 8px", borderRadius: "12px", fontSize: "0.75rem", color: "#34d399", fontWeight: 600 }}>
-                <span className="pulse-dot"></span> Live Pipeline
-              </div>
-            </div>
-            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              Person 2 & 3 — Business KPIs, Predictive Analytics & Autonomous AI Agent
+            <h1 style={{ fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.2 }}>
+              Business Intelligence
+            </h1>
+            <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>
+              Analytics &amp; AI Advisor for your business
             </p>
           </div>
         </div>
 
-        {/* Controls / Actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {/* Controls */}
+        <div className="app-header-controls" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
           <button
-            className="btn btn-secondary"
+            className="btn btn-primary"
             onClick={onOpenAIModal}
-            title="Chat with AI Business Intelligence Copilot"
+            aria-label="Open AI Business Analyst"
+            title="Open AI Business Analyst"
             style={{
-              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.25))",
-              border: "1px solid var(--accent-indigo)",
-              color: "#fff",
-              fontWeight: 600,
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              fontSize: "0.85rem",
+              padding: "9px 16px",
             }}
           >
-            <Bot size={18} color="#a5b4fc" />
-            AI Agent Copilot
+            <Bot size={17} />
+            <span>Ask AI Analyst</span>
           </button>
 
-
-          <a href={exportUrl} download className="btn btn-primary" style={{ textDecoration: "none" }}>
-            <Download size={18} />
-            Export CSV
+          <a
+            href={exportUrl}
+            download
+            className="btn btn-secondary"
+            style={{ textDecoration: "none", fontSize: "0.85rem", padding: "9px 14px" }}
+            aria-label="Export data as CSV"
+            title="Export data as CSV"
+          >
+            <Download size={16} />
+            <span>Export CSV</span>
           </a>
 
           <button
             className="btn btn-secondary"
             onClick={onToggleTheme}
-            style={{ width: "40px", height: "40px", padding: 0, justifyContent: "center" }}
+            style={{ width: "38px", height: "38px", padding: 0, justifyContent: "center", flexShrink: 0 }}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             title={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
           >
-            {theme === "dark" ? <Sun size={20} color="#fbbf24" /> : <Moon size={20} color="#6366f1" />}
+            {theme === "dark" ? <Sun size={18} color="#fbbf24" /> : <Moon size={18} color="#6366f1" />}
           </button>
         </div>
       </div>
+
+      {/* Navigation */}
+      <nav
+        aria-label="Workspace sections"
+        style={{ marginTop: "16px" }}
+      >
+        <div className="app-nav" role="tablist">
+          {NAV_TABS.map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={activeSection === id}
+              className={`nav-tab${activeSection === id ? " active" : ""}`}
+              onClick={() => onSectionChange(id)}
+            >
+              <Icon size={16} />
+              <span className="nav-label">{label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
     </header>
   );
 };

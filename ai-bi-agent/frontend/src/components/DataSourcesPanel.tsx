@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Database, Upload, Play, RefreshCw, Plus } from "lucide-react";
+import { Database, Upload, Play, RefreshCw, Plus, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
 import {
   createDataSource,
   fetchPipelineSummary,
@@ -38,7 +38,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
   const handleRegisterSource = async () => {
     const name = sourceName.trim();
     if (!name) {
-      setError("Enter a name for this data source.");
+      setError("Please specify a name for this data source.");
       return;
     }
     setIsRegistering(true);
@@ -46,7 +46,10 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
     setMessage(null);
     try {
       await createDataSource(name, sourceType);
-      setMessage(`Registered ${sourceType} source "${name}". Add its API credential to the backend environment, then sync to verify the connection.`);
+      setMessage(
+        `Successfully registered ${sourceType.toUpperCase()} source "${name}". Credentials are securely managed server-side. Trigger sync below to ingest live data.`
+      );
+      setSourceName("");
       await onSourcesChanged();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not register data source");
@@ -57,21 +60,21 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
 
   const handleUpload = async () => {
     if (!file) {
-      setError("Choose a CSV file first.");
+      setError("Please select a .csv file to import.");
       return;
     }
     setIsUploading(true);
     setError(null);
     setMessage(null);
     try {
-      const result = await uploadCsvFile(file, recordType, sourceName.trim() || "csv_upload");
+      const result = await uploadCsvFile(file, recordType, sourceName.trim() || "csv_import");
       setMessage(
-        `Uploaded ${result.records_fetched} ${recordType} rows — inserted ${result.records_inserted}, duplicates ${result.records_duplicate}, invalid ${result.records_invalid}.`
+        `Processed ${result.records_fetched} ${recordType} rows — ${result.records_inserted} inserted, ${result.records_duplicate} duplicates skipped, ${result.records_invalid} invalid rows flagged.`
       );
       setFile(null);
       await onSourcesChanged();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "CSV upload failed");
+      setError(err instanceof Error ? err.message : "CSV ingestion failed");
     } finally {
       setIsUploading(false);
     }
@@ -79,7 +82,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
 
   const handleSyncSources = async () => {
     if (syncableSources.length === 0) {
-      setError("No active API sources are registered.");
+      setError("No active API integrations registered. Register HubSpot or Stripe first.");
       return;
     }
     setIsSyncing(true);
@@ -96,7 +99,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
         for (const type of recordTypes[source.source_type] ?? []) {
           const run = await triggerPipeline(source.id, type);
           if (run.status === "failed") {
-            throw new Error(`${source.name}: ${run.error_message ?? "Pipeline failed"}`);
+            throw new Error(`${source.name}: ${run.error_message ?? "Pipeline run failed"}`);
           }
           totals.fetched += run.records_fetched;
           totals.inserted += run.records_inserted;
@@ -105,7 +108,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
         }
       }
       setMessage(
-        `Synced ${syncableSources.length} API source(s) — fetched ${totals.fetched}, inserted ${totals.inserted}, duplicates ${totals.duplicate}, invalid ${totals.invalid}.`
+        `Sync completed for ${syncableSources.length} source(s): fetched ${totals.fetched}, inserted ${totals.inserted}, ${totals.duplicate} duplicates, ${totals.invalid} invalid.`
       );
       await onSourcesChanged();
     } catch (err: unknown) {
@@ -120,99 +123,295 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
       await fetchPipelineSummary();
       await onSourcesChanged();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Could not refresh sources");
+      setError(err instanceof Error ? err.message : "Could not refresh pipeline status");
     }
   };
 
   return (
-    <div className="glass-card" style={{ padding: "20px 24px", marginBottom: "24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
+    <section aria-labelledby="sources-heading">
+      {/* Notice Banner */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "12px",
+          padding: "14px 18px",
+          borderRadius: "12px",
+          background: "var(--card-subtle-bg)",
+          border: "1px solid var(--card-border)",
+          marginBottom: "20px",
+          fontSize: "0.85rem",
+          color: "var(--text-primary)",
+        }}
+        role="note"
+      >
+        <ShieldCheck size={18} color="var(--accent-indigo)" style={{ flexShrink: 0, marginTop: "2px" }} aria-hidden="true" />
         <div>
-          <h3 style={{ fontSize: "1.05rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
-            <Database size={18} color="var(--accent-indigo)" /> Centralized data sources
-          </h3>
-          <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-            Import CSV data or sync connected HubSpot and Stripe accounts into one database.
-          </p>
+          <strong>Enterprise Data Security:</strong> Third-party API credentials (Stripe, HubSpot, Shopify)
+          are securely maintained in server environment variables. Registered sources connect to deterministic
+          ingestion pipelines with automatic deduplication and validation.
         </div>
-        <button className="btn btn-secondary" onClick={handleRefreshSummary} style={{ fontSize: "0.8rem", padding: "8px 12px" }}>
-          <RefreshCw size={14} /> Refresh
-        </button>
       </div>
 
+      {/* Summary Cards */}
       {summary && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px", marginBottom: "16px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
+            gap: "12px",
+            marginBottom: "20px",
+          }}
+        >
           {[
-            ["Sources", sources.length],
-            ["Runs", summary.total_runs],
-            ["Customers", summary.total_customers],
-            ["Orders", summary.total_orders],
-            ["Products", summary.total_products],
-            ["Quality issues", summary.total_quality_errors],
+            ["Registered Sources", sources.length],
+            ["Pipeline Runs", summary.total_runs],
+            ["Total Orders", summary.total_orders],
+            ["Total Customers", summary.total_customers],
+            ["Total Products", summary.total_products],
+            ["Quality Issues", summary.total_quality_errors],
           ].map(([label, value]) => (
-            <div key={String(label)} style={{ background: "var(--card-subtle-bg)", border: "1px solid var(--card-subtle-border)", borderRadius: "10px", padding: "10px 12px" }}>
-              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>{label}</div>
-              <div style={{ fontSize: "1.1rem", fontWeight: 700 }}>{value}</div>
+            <div
+              key={String(label)}
+              className="glass-card"
+              style={{ padding: "14px 16px" }}
+            >
+              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{label}</div>
+              <div style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: "4px", color: "var(--text-primary)" }}>
+                {value}
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
-        {sources.length === 0 ? (
-          <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>No sources registered yet. Upload a CSV to create one.</span>
-        ) : (
-          sources.map((s) => (
-            <span key={s.id} className="badge badge-positive">
-              {s.name} · {s.source_type}
-            </span>
-          ))
-        )}
+      {/* Registered Sources List */}
+      <div className="glass-card" style={{ padding: "20px 24px", marginBottom: "20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
+          <div>
+            <h3 id="sources-heading" style={{ fontSize: "1rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              <Database size={18} color="var(--accent-indigo)" /> Connected Data Sources
+            </h3>
+            <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "4px 0 0" }}>
+              Active platforms linked to your business analytics database.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <button className="btn btn-secondary" onClick={handleRefreshSummary} style={{ fontSize: "0.8rem", padding: "7px 12px" }}>
+              <RefreshCw size={14} /> Refresh
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={handleSyncSources}
+              disabled={isSyncing || syncableSources.length === 0}
+              style={{ fontSize: "0.8rem", padding: "7px 14px", background: "var(--accent-indigo)", color: "#ffffff" }}
+            >
+              <Play size={14} />
+              {isSyncing ? "Syncing..." : "Sync All Sources"}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gap: "10px" }}>
+          {sources.length === 0 ? (
+            <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+              No sources registered yet. Add a platform or import a CSV file below.
+            </div>
+          ) : (
+            sources.map((s) => (
+              <div
+                key={s.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  background: "var(--card-subtle-bg)",
+                  border: "1px solid var(--card-subtle-border)",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <div>
+                  <strong style={{ fontSize: "0.9rem" }}>{s.name}</strong>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                    Type: <code style={{ fontSize: "0.72rem" }}>{s.source_type}</code>
+                    {s.description ? ` · ${s.description}` : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <span className="badge badge-positive" style={{ fontSize: "0.72rem" }}>
+                    ● {s.is_active ? "Active" : "Paused"}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
-        <select className="select-input" value={recordType} onChange={(e) => setRecordType(e.target.value as "customer" | "product" | "order")}>
-          <option value="customer">Customers (CRM)</option>
-          <option value="order">Orders (Sales / payments)</option>
-          <option value="product">Products (Catalog)</option>
-        </select>
-        <input
-          className="select-input"
-          value={sourceName}
-          onChange={(e) => setSourceName(e.target.value)}
-          placeholder="Source name, e.g. hubspot_main"
-          style={{ minWidth: "180px" }}
-        />
-        <input
-          type="file"
-          accept=".csv"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}
-        />
-        <button className="btn btn-primary" onClick={handleUpload} disabled={isUploading} style={{ fontSize: "0.8rem" }}>
-          <Upload size={14} />
-          {isUploading ? "Uploading..." : "Upload CSV"}
-        </button>
-        <select className="select-input" value={sourceType} onChange={(e) => setSourceType(e.target.value as "hubspot" | "stripe")}>
-          <option value="hubspot">HubSpot CRM</option>
-          <option value="stripe">Stripe payments</option>
-        </select>
-        <button className="btn btn-secondary" onClick={handleRegisterSource} disabled={isRegistering} style={{ fontSize: "0.8rem" }}>
-          <Plus size={14} />
-          {isRegistering ? "Registering..." : "Add integration"}
-        </button>
-        <button className="btn btn-secondary" onClick={handleSyncSources} disabled={isSyncing} style={{ fontSize: "0.8rem" }}>
-          <Play size={14} />
-          {isSyncing ? "Syncing..." : "Sync API sources"}
-        </button>
+      {/* CSV Upload & New Integration Actions */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+        {/* CSV Import */}
+        <div className="glass-card" style={{ padding: "20px 24px" }}>
+          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Upload size={16} color="var(--accent-indigo)" /> CSV File Ingestion
+          </h4>
+          <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+            Import business transactions, customers, or products with automated schema validation.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                Record Type
+              </label>
+              <select
+                className="select-input"
+                style={{ width: "100%" }}
+                value={recordType}
+                onChange={(e) => setRecordType(e.target.value as "customer" | "product" | "order")}
+              >
+                <option value="order">Orders (Sales &amp; Revenue)</option>
+                <option value="customer">Customers (Profiles &amp; CRM)</option>
+                <option value="product">Products (Catalog &amp; Inventory)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                Source Name Tag
+              </label>
+              <input
+                className="select-input"
+                style={{ width: "100%" }}
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                placeholder="e.g. offline_store_oct2026"
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                CSV File
+              </label>
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                style={{ fontSize: "0.8rem", color: "var(--text-secondary)", width: "100%" }}
+              />
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={handleUpload}
+              disabled={isUploading || !file}
+              style={{ width: "100%", justifyContent: "center", background: "var(--accent-indigo)", color: "#ffffff" }}
+            >
+              <Upload size={15} />
+              {isUploading ? "Validating & Ingesting…" : "Upload & Ingest CSV"}
+            </button>
+          </div>
+        </div>
+
+        {/* Register Platform Integration */}
+        <div className="glass-card" style={{ padding: "20px 24px" }}>
+          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Plus size={16} color="var(--accent-indigo)" /> Connect New Integration
+          </h4>
+          <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
+            Add an external platform channel. Credentials are configured securely on the backend server.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                Platform Type
+              </label>
+              <select
+                className="select-input"
+                style={{ width: "100%" }}
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value as "hubspot" | "stripe")}
+              >
+                <option value="hubspot">HubSpot CRM (Customers &amp; Products)</option>
+                <option value="stripe">Stripe Payments (Orders &amp; Charges)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
+                Integration Identifier
+              </label>
+              <input
+                className="select-input"
+                style={{ width: "100%" }}
+                value={sourceName}
+                onChange={(e) => setSourceName(e.target.value)}
+                placeholder="e.g. stripe_primary"
+              />
+            </div>
+            <div
+              style={{
+                fontSize: "0.75rem",
+                color: "var(--text-muted)",
+                background: "var(--card-subtle-bg)",
+                padding: "10px",
+                borderRadius: "8px",
+              }}
+            >
+              ℹ️ After registering, configure the corresponding API key in the server <code>.env</code> file, then click "Sync All Sources" to start pulling records.
+            </div>
+            <button
+              className="btn btn-secondary"
+              onClick={handleRegisterSource}
+              disabled={isRegistering || !sourceName.trim()}
+              style={{ width: "100%", justifyContent: "center" }}
+            >
+              <Plus size={15} />
+              {isRegistering ? "Registering…" : "Register Platform Source"}
+            </button>
+          </div>
+        </div>
       </div>
 
+      {/* Status Feedback Messages */}
       {message && (
-        <p style={{ marginTop: "12px", fontSize: "0.82rem", color: "var(--accent-emerald)" }}>{message}</p>
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            background: "rgba(36, 132, 90, 0.12)",
+            border: "1px solid rgba(36, 132, 90, 0.3)",
+            fontSize: "0.85rem",
+            color: "var(--accent-emerald)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          role="status"
+        >
+          <CheckCircle2 size={16} />
+          {message}
+        </div>
       )}
       {error && (
-        <p style={{ marginTop: "12px", fontSize: "0.82rem", color: "#fb7185" }}>{error}</p>
+        <div
+          style={{
+            marginTop: "16px",
+            padding: "12px 16px",
+            borderRadius: "10px",
+            background: "rgba(195, 78, 83, 0.12)",
+            border: "1px solid rgba(195, 78, 83, 0.3)",
+            fontSize: "0.85rem",
+            color: "var(--accent-rose)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}
+          role="alert"
+        >
+          <AlertTriangle size={16} />
+          {error}
+        </div>
       )}
-    </div>
+    </section>
   );
 };

@@ -65,8 +65,10 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
       {cardConfig.map((c) => {
         const Icon = c.icon;
         const val = c.metric.current;
+        // Display the raw number. Currency symbol is intentionally omitted
+        // because the backend does not guarantee USD conversion.
         const formattedVal = c.isCurrency
-          ? `$${val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ? val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           : val.toLocaleString();
 
         const pct = c.metric.percentage_change;
@@ -93,7 +95,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
 
             <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "8px" }}>
               {c.metric.previous !== null ? (
-                <>vs {c.isCurrency ? `$${c.metric.previous.toLocaleString()}` : c.metric.previous} prior period</>
+                <>vs {c.isCurrency ? c.metric.previous.toLocaleString("en-US", { minimumFractionDigits: 2 }) : c.metric.previous} prior period</>
               ) : (
                 <>Overall metric</>
               )}

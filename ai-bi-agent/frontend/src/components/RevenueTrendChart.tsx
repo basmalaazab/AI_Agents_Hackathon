@@ -50,7 +50,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
     datasets: [
       {
         fill: true,
-        label: isRevenue ? "Revenue ($ USD)" : "Completed Orders",
+        label: isRevenue ? "Revenue" : "Completed Orders",
         data: datasetValues,
         borderColor: isRevenue ? "#6366f1" : "#14b8a6",
         backgroundColor: isRevenue
@@ -83,7 +83,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
         callbacks: {
           label: (context: any) => {
             const val = context.raw;
-            return isRevenue ? ` Revenue: $${val.toLocaleString()}` : ` Orders: ${val}`;
+            return isRevenue ? ` Revenue: ${val.toLocaleString()}` : ` Orders: ${val}`;
           },
         },
       },
@@ -106,7 +106,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
         ticks: {
           color: "var(--text-muted)",
           font: { size: 11 },
-          callback: (value: any) => (isRevenue ? `$${value}` : value),
+          callback: (value: any) => (isRevenue ? value.toLocaleString() : value),
         },
       },
     },

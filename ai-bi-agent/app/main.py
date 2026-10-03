@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, sources, uploads, pipelines, data, analytics, agent
+from app.api import health, sources, uploads, pipelines, data, analytics, agent, auth
 from app.config import get_settings
 from app.database import Base, engine
 from app.models import (  # noqa: F401 — register models before create_all
@@ -96,6 +96,7 @@ app.include_router(pipelines.router, prefix=API_PREFIX)
 app.include_router(data.router, prefix=API_PREFIX)
 app.include_router(analytics.router, prefix=API_PREFIX)
 app.include_router(agent.router, prefix=API_PREFIX)
+app.include_router(auth.router, prefix=API_PREFIX)
 
 
 

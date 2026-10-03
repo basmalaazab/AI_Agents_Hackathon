@@ -1,5 +1,5 @@
 /**
- * Person 3: AI Business Intelligence Agent TypeScript Definitions.
+ * AI Business Analyst – TypeScript type definitions.
  */
 
 export interface MetricsSnapshot {

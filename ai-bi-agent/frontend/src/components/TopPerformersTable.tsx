@@ -126,7 +126,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
                   <td style={{ padding: "12px 16px", fontWeight: 600 }}>{p.units_sold}</td>
                   <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>{p.order_count}</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "var(--accent-emerald)" }}>
-                    ${p.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {p.revenue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}
@@ -162,7 +162,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
                   </td>
                   <td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.order_count}</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, color: "var(--accent-emerald)" }}>
-                    ${c.lifetime_value.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    {c.lifetime_value.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </td>
                 </tr>
               ))}
