@@ -43,7 +43,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
   });
 
   return (
-    <div className="glass-card" style={{ padding: "24px", marginBottom: "24px" }}>
+    <div className="glass-card top-performers-card" style={{ padding: "24px", marginBottom: "24px" }}>
       {/* Header & Controls */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
@@ -100,7 +100,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
       </div>
 
       {/* Table Content */}
-      <div style={{ overflowX: "auto" }}>
+      <div className="table-scroll-region" style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
         {isProducts ? (
           <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
             <thead>

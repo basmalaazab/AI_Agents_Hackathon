@@ -32,6 +32,7 @@ import type {
   SQLResults,
   PromptSuggestion,
 } from "../types/agent";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface AIChatCopilotModalProps {
   isOpen: boolean;
@@ -488,10 +489,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                       }}
                     >
-                      {/* Markdown text formatted with simple rules */}
-                      <div style={{ whiteSpace: "pre-wrap" }}>
-                        {m.content}
-                      </div>
+                      {isAssistant ? (
+                        <MarkdownContent content={m.content} />
+                      ) : (
+                        <div style={{ whiteSpace: "pre-wrap" }}>{m.content}</div>
+                      )}
 
                       {/* Collapsible Executed SQL */}
                       {m.executed_sql && (

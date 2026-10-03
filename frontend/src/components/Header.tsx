@@ -117,6 +117,8 @@ export const Header: React.FC<HeaderProps> = ({
               key={id}
               role="tab"
               aria-selected={activeSection === id}
+              aria-label={label}
+              title={label}
               className={`nav-tab${activeSection === id ? " active" : ""}`}
               onClick={() => onSectionChange(id)}
             >

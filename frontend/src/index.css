@@ -109,6 +109,7 @@ body {
   border: 1px solid var(--card-border);
   border-radius: 8px;
   box-shadow: var(--glass-shadow);
+  min-width: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -390,6 +391,66 @@ h1, h2, h3, h4, .font-heading {
   border-color: var(--accent-indigo);
 }
 
+.markdown-content {
+  overflow-wrap: anywhere;
+}
+
+.markdown-content > :first-child {
+  margin-top: 0;
+}
+
+.markdown-content > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  margin: 0.9rem 0 0.4rem;
+  line-height: 1.35;
+}
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content blockquote {
+  margin: 0 0 0.75rem;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.35rem;
+}
+
+.markdown-content li + li {
+  margin-top: 0.25rem;
+}
+
+.markdown-content code {
+  padding: 0.08em 0.32em;
+  border-radius: 4px;
+  background: var(--card-subtle-bg);
+  color: var(--accent-indigo);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.markdown-content pre {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--code-text);
+}
+
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
 /* ── Status badges ───────────────────────────────────────────────────── */
 .status-badge {
   display: inline-flex;
@@ -518,5 +579,22 @@ tbody tr:hover {
 @media (max-width: 480px) {
   .nav-tab span.nav-label {
     display: none;
+  }
+
+  .ai-suggestion-pills {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ai-pill {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .table-scroll-region {
+    max-width: 100%;
+    min-width: 0;
   }
 }

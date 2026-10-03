@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Brain, Send, RefreshCw, Sparkles, ChevronRight, AlertCircle, WifiOff } from "lucide-react";
 import { askAIAgent, fetchPromptSuggestions } from "../services/agentApi";
 import type { ChatMessage, PromptSuggestion } from "../types/agent";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface AIBriefingPanelProps {
   aiData: any;
@@ -249,7 +250,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           role="region"
           aria-label="AI answer"
         >
-          <div style={{ whiteSpace: "pre-wrap" }}>{answer.content}</div>
+          <MarkdownContent content={answer.content} />
 
           {/* Source/metadata footer */}
           <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid var(--card-border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
