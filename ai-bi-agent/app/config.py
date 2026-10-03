@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     google_sheets_token_file: Optional[str] = None
     shopify_shop_name: Optional[str] = None
     shopify_access_token: Optional[str] = None
+    hubspot_access_token: Optional[str] = None
+    stripe_secret_key: Optional[str] = None
 
     # Person 3: AI Agent Settings
     openai_api_key: Optional[str] = None

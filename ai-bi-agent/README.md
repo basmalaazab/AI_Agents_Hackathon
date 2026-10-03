@@ -135,6 +135,8 @@ Interactive Swagger docs at `http://localhost:8000/docs`.
 | `GET` | `/api/v1/data/products` | Query clean products |
 | `GET` | `/api/v1/data/quality-errors` | Failed records with raw payloads |
 
+Supported API source types are `mock_api`, `hubspot`, and `stripe`. HubSpot syncs contacts and products; Stripe syncs customers, products, and finalized PaymentIntents. CSV uploads remain available for other systems.
+
 ### Person 2 — Analytics & KPIs
 
 | Method | Endpoint | Description |
@@ -202,7 +204,7 @@ Built with **React 19 + TypeScript + Vite + Tailwind CSS**.
 
 ## 🧪 Test Suite
 
-**107 tests passing** across unit and integration levels:
+Unit and integration tests cover ingestion, API behavior, analytics, and connector normalization:
 
 ```bash
 cd ai-bi-agent
@@ -216,8 +218,9 @@ pytest -v
 | `tests/unit/test_validator.py` | 13 | Field validation rules |
 | `tests/unit/test_analytics_service.py` | 21 | KPI computation |
 | `tests/unit/test_ai_agent_service.py` | 21 | AI Agent + SQL safety |
-| `tests/integration/test_ingestion_workflow.py` | 9 | End-to-end ETL pipeline |
-| `tests/integration/test_api_endpoints.py` | 6 | Person 1 API endpoints |
+| `tests/unit/test_platform_connectors.py` | 3 | HubSpot and Stripe mapping & pagination |
+| `tests/integration/test_ingestion_workflow.py` | 10 | End-to-end ETL pipeline |
+| `tests/integration/test_api_endpoints.py` | 7 | Person 1 API endpoints |
 | `tests/integration/test_analytics_api.py` | 6 | Person 2 analytics API |
 
 ---
@@ -250,12 +253,25 @@ DATABASE_URL=postgresql://bi_user:bi_password@localhost:5432/bi_db
 # Mock API
 MOCK_API_BASE_URL=http://localhost:8001
 
+# Optional live platform connectors (credentials stay on the backend)
+HUBSPOT_ACCESS_TOKEN=
+STRIPE_SECRET_KEY=
+
 # Person 3 — AI Agent (optional, enables LLM synthesis)
 GEMINI_API_KEY=your_gemini_api_key_here
 OPENAI_API_KEY=your_openai_api_key_here
 AI_AGENT_MODEL=gemini-2.0-flash
 AI_AGENT_TEMPERATURE=0.3
 ```
+
+### HubSpot and Stripe setup
+
+1. Add a HubSpot private-app token with read access to CRM contacts and products, and/or a Stripe restricted secret key with read access to customers, products, and PaymentIntents. Never put these credentials in frontend settings or source control.
+2. Add the values to `ai-bi-agent/.env` using `HUBSPOT_ACCESS_TOKEN` and `STRIPE_SECRET_KEY`.
+3. Restart the backend (or `docker compose`) so it loads the credentials.
+4. In **Centralized data sources**, enter a unique source name, choose HubSpot or Stripe, and select **Add integration**. Then select **Sync API sources**.
+
+HubSpot contacts are normalized as customers. HubSpot products are imported without a unit price because the product response does not guarantee a currency. Stripe PaymentIntents with `succeeded` status become completed orders; canceled and fully refunded intents are retained as canceled/refunded attempts, partially refunded amounts are reduced, and non-final intents are excluded. Stripe amounts are stored in their original currency; automatic FX conversion is not implemented, so cross-currency USD analytics should not be treated as converted values.
 
 ---
 

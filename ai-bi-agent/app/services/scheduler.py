@@ -32,28 +32,32 @@ def _run_scheduled_pipelines() -> None:
         service = PipelineService(db)
         sources = db.query(DataSource).filter_by(is_active=True).all()
         for source in sources:
-            if source.source_type == "mock_api":
-                for record_type in ("customer", "product", "order"):
-                    try:
-                        run = service.trigger_source(
-                            source_id=source.id,
-                            record_type=record_type,
-                            triggered_by="scheduler",
-                        )
-                        logger.info(
-                            "Scheduler: run=%s source=%s type=%s status=%s",
-                            run.id,
-                            source.name,
-                            record_type,
-                            run.status,
-                        )
-                    except Exception as exc:
-                        logger.error(
-                            "Scheduler: failed source=%s type=%s: %s",
-                            source.name,
-                            record_type,
-                            exc,
-                        )
+            record_types = {
+                "mock_api": ("customer", "product", "order"),
+                "hubspot": ("customer", "product"),
+                "stripe": ("customer", "product", "order"),
+            }.get(source.source_type, ())
+            for record_type in record_types:
+                try:
+                    run = service.trigger_source(
+                        source_id=source.id,
+                        record_type=record_type,
+                        triggered_by="scheduler",
+                    )
+                    logger.info(
+                        "Scheduler: run=%s source=%s type=%s status=%s",
+                        run.id,
+                        source.name,
+                        record_type,
+                        run.status,
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "Scheduler: failed source=%s type=%s: %s",
+                        source.name,
+                        record_type,
+                        exc,
+                    )
 
 
 def start_scheduler() -> None:

@@ -36,6 +36,8 @@ services:
     environment:
       DATABASE_URL: postgresql://bi_user:bi_password@postgres:5432/bi_db
       MOCK_API_URL: http://mock_api:8001
+      HUBSPOT_ACCESS_TOKEN: ${HUBSPOT_ACCESS_TOKEN:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
       APP_ENV: development
       LOG_LEVEL: INFO
       SCHEDULER_INTERVAL_MINUTES: 60

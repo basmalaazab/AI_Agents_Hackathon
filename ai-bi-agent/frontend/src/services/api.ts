@@ -152,6 +152,22 @@ export async function fetchDataSources(): Promise<DataSourceInfo[]> {
   return res.json();
 }
 
+export async function createDataSource(
+  name: string,
+  sourceType: "hubspot" | "stripe"
+): Promise<DataSourceInfo> {
+  const res = await fetch(`${API_V1}/sources`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, source_type: sourceType }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || "Failed to register data source");
+  }
+  return res.json();
+}
+
 export async function fetchPipelineSummary(): Promise<PipelineSummary> {
   const res = await fetch(`${API_V1}/pipelines/summary`);
   if (!res.ok) throw new Error("Failed to fetch pipeline summary");

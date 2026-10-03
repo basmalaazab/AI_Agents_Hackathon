@@ -69,6 +69,15 @@ def test_list_sources(test_client):
     assert any(s["name"] == "mock_ecommerce_api" for s in data)
 
 
+def test_register_unsupported_source_type_is_rejected(test_client):
+    response = test_client.post(
+        "/api/v1/sources",
+        json={"name": "unsupported_shopify", "source_type": "shopify"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_upload_customer_csv(test_client):
     csv_content = (
         b"customer_id,email,first_name,last_name,city,country\n"

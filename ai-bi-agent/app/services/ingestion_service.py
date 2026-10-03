@@ -66,7 +66,18 @@ class IngestionService:
         since: str | None = None,
         triggered_by: str = "scheduler",
     ) -> IngestionRun:
-        raw_records = connector.fetch(record_type=record_type, since=since)
+        try:
+            raw_records = connector.fetch(record_type=record_type, since=since)
+        except Exception as exc:
+            run = self._create_run(data_source.id, triggered_by)
+            self._finish_run(run, RunStatus.FAILED, error_message=str(exc))
+            self.db.commit()
+            logger.exception(
+                "Connector fetch failed for source=%s type=%s",
+                data_source.name,
+                record_type,
+            )
+            return run
         return self._run_pipeline(data_source, record_type, raw_records, triggered_by)
 
     # ------------------------------------------------------------------

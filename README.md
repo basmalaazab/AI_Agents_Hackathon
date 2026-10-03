@@ -198,11 +198,15 @@ Built with **React 19 + TypeScript + Vite + Tailwind CSS**.
   - **SQL Runner** — Write and execute safe SELECT queries interactively
   - **Raw Context** — Full analytics JSON snapshot from Person 2
 
+## 🔌 Live Integrations
+
+The backend supports read-only HubSpot and Stripe connectors in addition to CSV uploads and the synthetic mock e-commerce API. Add `HUBSPOT_ACCESS_TOKEN` and/or `STRIPE_SECRET_KEY` to `ai-bi-agent/.env`, restart the backend, then register the source and sync it from the dashboard. HubSpot contacts map to customers; Stripe PaymentIntents map to completed, canceled, or refunded orders. CRM deals are not counted as sales, and Stripe currency conversion is not implemented.
+
 ---
 
 ## 🧪 Test Suite
 
-**107 tests passing** across unit and integration levels:
+**112 tests passing** across unit and integration levels:
 
 ```bash
 cd ai-bi-agent
@@ -216,8 +220,9 @@ pytest -v
 | `tests/unit/test_validator.py` | 13 | Field validation rules |
 | `tests/unit/test_analytics_service.py` | 21 | KPI computation |
 | `tests/unit/test_ai_agent_service.py` | 21 | AI Agent + SQL safety |
-| `tests/integration/test_ingestion_workflow.py` | 9 | End-to-end ETL pipeline |
-| `tests/integration/test_api_endpoints.py` | 6 | Person 1 API endpoints |
+| `tests/unit/test_platform_connectors.py` | 3 | HubSpot and Stripe connector mapping |
+| `tests/integration/test_ingestion_workflow.py` | 10 | End-to-end ETL pipeline |
+| `tests/integration/test_api_endpoints.py` | 7 | Person 1 API endpoints |
 | `tests/integration/test_analytics_api.py` | 6 | Person 2 analytics API |
 
 ---
@@ -249,6 +254,10 @@ DATABASE_URL=postgresql://bi_user:bi_password@localhost:5432/bi_db
 
 # Mock API
 MOCK_API_BASE_URL=http://localhost:8001
+
+# Optional live integrations
+HUBSPOT_ACCESS_TOKEN=
+STRIPE_SECRET_KEY=
 
 # Person 3 — AI Agent (optional, enables LLM synthesis)
 GEMINI_API_KEY=your_gemini_api_key_here

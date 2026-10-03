@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Database, Upload, Play, RefreshCw } from "lucide-react";
+import { Database, Upload, Play, RefreshCw, Plus } from "lucide-react";
 import {
+  createDataSource,
   fetchPipelineSummary,
   triggerPipeline,
   uploadCsvFile,
@@ -20,17 +21,39 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
   onSourcesChanged,
 }) => {
   const [recordType, setRecordType] = useState<"customer" | "product" | "order">("order");
-  const [sourceName, setSourceName] = useState("csv_upload");
+  const [sourceType, setSourceType] = useState<"hubspot" | "stripe">("hubspot");
+  const [sourceName, setSourceName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const mockSources = useMemo(
-    () => sources.filter((s) => s.source_type === "mock_api" && s.is_active),
+  const syncableSources = useMemo(
+    () => sources.filter((s) => ["mock_api", "hubspot", "stripe"].includes(s.source_type) && s.is_active),
     [sources]
   );
+
+  const handleRegisterSource = async () => {
+    const name = sourceName.trim();
+    if (!name) {
+      setError("Enter a name for this data source.");
+      return;
+    }
+    setIsRegistering(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await createDataSource(name, sourceType);
+      setMessage(`Registered ${sourceType} source "${name}". Add its API credential to the backend environment, then sync to verify the connection.`);
+      await onSourcesChanged();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not register data source");
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   const handleUpload = async () => {
     if (!file) {
@@ -54,20 +77,27 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
     }
   };
 
-  const handleSyncMock = async () => {
-    if (mockSources.length === 0) {
-      setError("No active mock API source is registered. Start the backend and mock API, then refresh.");
+  const handleSyncSources = async () => {
+    if (syncableSources.length === 0) {
+      setError("No active API sources are registered.");
       return;
     }
     setIsSyncing(true);
     setError(null);
     setMessage(null);
     try {
-      const types: Array<"customer" | "product" | "order"> = ["customer", "product", "order"];
       const totals = { fetched: 0, inserted: 0, duplicate: 0, invalid: 0 };
-      for (const source of mockSources) {
-        for (const type of types) {
+      const recordTypes: Record<string, Array<"customer" | "product" | "order">> = {
+        mock_api: ["customer", "product", "order"],
+        hubspot: ["customer", "product"],
+        stripe: ["customer", "product", "order"],
+      };
+      for (const source of syncableSources) {
+        for (const type of recordTypes[source.source_type] ?? []) {
           const run = await triggerPipeline(source.id, type);
+          if (run.status === "failed") {
+            throw new Error(`${source.name}: ${run.error_message ?? "Pipeline failed"}`);
+          }
           totals.fetched += run.records_fetched;
           totals.inserted += run.records_inserted;
           totals.duplicate += run.records_duplicate;
@@ -75,7 +105,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
         }
       }
       setMessage(
-        `Synced mock platforms — fetched ${totals.fetched}, inserted ${totals.inserted}, duplicates ${totals.duplicate}, invalid ${totals.invalid}.`
+        `Synced ${syncableSources.length} API source(s) — fetched ${totals.fetched}, inserted ${totals.inserted}, duplicates ${totals.duplicate}, invalid ${totals.invalid}.`
       );
       await onSourcesChanged();
     } catch (err: unknown) {
@@ -102,7 +132,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
             <Database size={18} color="var(--accent-indigo)" /> Centralized data sources
           </h3>
           <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-            Ingest CRM / sales / POS-style CSVs and sync the mock e-commerce platform into one database.
+            Import CSV data or sync connected HubSpot and Stripe accounts into one database.
           </p>
         </div>
         <button className="btn btn-secondary" onClick={handleRefreshSummary} style={{ fontSize: "0.8rem", padding: "8px 12px" }}>
@@ -150,7 +180,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
           className="select-input"
           value={sourceName}
           onChange={(e) => setSourceName(e.target.value)}
-          placeholder="Source name, e.g. pos_terminal"
+          placeholder="Source name, e.g. hubspot_main"
           style={{ minWidth: "180px" }}
         />
         <input
@@ -163,9 +193,17 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
           <Upload size={14} />
           {isUploading ? "Uploading..." : "Upload CSV"}
         </button>
-        <button className="btn btn-secondary" onClick={handleSyncMock} disabled={isSyncing} style={{ fontSize: "0.8rem" }}>
+        <select className="select-input" value={sourceType} onChange={(e) => setSourceType(e.target.value as "hubspot" | "stripe")}>
+          <option value="hubspot">HubSpot CRM</option>
+          <option value="stripe">Stripe payments</option>
+        </select>
+        <button className="btn btn-secondary" onClick={handleRegisterSource} disabled={isRegistering} style={{ fontSize: "0.8rem" }}>
+          <Plus size={14} />
+          {isRegistering ? "Registering..." : "Add integration"}
+        </button>
+        <button className="btn btn-secondary" onClick={handleSyncSources} disabled={isSyncing} style={{ fontSize: "0.8rem" }}>
           <Play size={14} />
-          {isSyncing ? "Syncing..." : "Sync mock platform"}
+          {isSyncing ? "Syncing..." : "Sync API sources"}
         </button>
       </div>
 
