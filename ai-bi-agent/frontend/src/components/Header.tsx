@@ -42,7 +42,8 @@ export const Header: React.FC<HeaderProps> = ({
               width: "40px",
               height: "40px",
               borderRadius: "10px",
-              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              background: "linear-gradient(135deg, #246b4d 0%, #24845a 100%)",
+              boxShadow: "0 2px 8px rgba(36, 107, 77, 0.25)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -52,11 +53,11 @@ export const Header: React.FC<HeaderProps> = ({
             <BarChart3 size={22} color="white" />
           </div>
           <div>
-            <h1 style={{ fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.2 }}>
-              Business Intelligence
+            <h1 style={{ fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.2, color: "var(--text-primary)" }}>
+              Clearview BI
             </h1>
             <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              Analytics &amp; AI Advisor for your business
+              Digital Business Intelligence &amp; AI Analyst
             </p>
           </div>
         </div>
@@ -69,9 +70,12 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label="Open AI Business Analyst"
             title="Open AI Business Analyst"
             style={{
-              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              background: "linear-gradient(135deg, #246b4d 0%, #24845a 100%)",
+              boxShadow: "0 2px 6px rgba(36, 107, 77, 0.2)",
+              color: "#ffffff",
               fontSize: "0.85rem",
               padding: "9px 16px",
+              border: "none",
             }}
           >
             <Bot size={17} />

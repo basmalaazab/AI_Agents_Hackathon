@@ -84,7 +84,8 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
               width: "36px",
               height: "36px",
               borderRadius: "10px",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              background: "linear-gradient(135deg, #246b4d, #24845a)",
+              boxShadow: "0 2px 8px rgba(36, 107, 77, 0.25)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -94,7 +95,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
             <Brain size={20} color="#fff" />
           </div>
           <div>
-            <h2 style={{ fontSize: "1rem", fontWeight: 700, margin: 0 }}>AI Business Analyst</h2>
+            <h2 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>AI Business Analyst</h2>
             <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: "2px 0 0" }}>
               Ask anything about your sales, customers, and performance.
             </p>
@@ -108,7 +109,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           aria-label="Open full AI Analyst with recommendations and diagnostics"
           title="Open full AI Analyst"
         >
-          <Sparkles size={15} />
+          <Sparkles size={15} color="var(--accent-indigo)" />
           Full Analyst
           <ChevronRight size={15} />
         </button>
@@ -184,7 +185,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           onClick={() => handleAsk()}
           disabled={isSending || !question.trim() || apiOffline}
           aria-label="Send question to AI Analyst"
-          style={{ flexShrink: 0 }}
+          style={{ flexShrink: 0, background: "var(--accent-indigo)", color: "#ffffff", border: "none" }}
         >
           {isSending ? <RefreshCw size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
           {isSending ? "Analyzing…" : "Ask"}

@@ -1,17 +1,18 @@
-# 🤖 AI Business Intelligence Agent for Small Businesses
+# 📊 Clearview BI — Digital Business Intelligence & AI Analyst
 
-> **Hackathon Project — Full-Stack AI Agent System**  
-> A complete end-to-end platform that ingests messy business data, computes KPI analytics, and powers a conversational AI agent that lets business owners query their data in plain English.
+> **Production-grade Digital Business Intelligence Solution designed for small business owners and startups.**  
+> Transform operational data from multiple sources (Stripe, HubSpot, Shopify, POS, CSV) into reliable business decisions, actionable growth plans, and natural-language AI insights in English and Arabic.
 
 ---
 
-## 👥 Team
+## 🌟 Key Highlights
 
-| Person | Role | Scope |
-|---|---|---|
-| **Person 1 — Basmala** | Data Engineering & Integration | ETL pipelines, schema normalization, deduplication, PostgreSQL |
-| **Person 2 — Shahd** | Analytics & KPI Dashboard | Metrics computation, React dashboard, interactive charts |
-| **Person 3 — Sarah** | AI Business Intelligence Agent | NL query engine, SQL safety sandbox, anomaly diagnosis, strategic recommendations |
+- **Executive AI Business Analyst:** Centered right on the workspace overview. Ask questions in natural English or Arabic and get answers backed by factual database records with separated facts and recommendations.
+- **Centralized Data Ingestion:** Connect external platforms (Stripe payments, HubSpot CRM, Shopify, POS terminals) and upload CSV files with automated deduplication and schema validation.
+- **Real-Time KPIs & Trends:** Executive dashboard displaying Revenue, Order Volume, Average Order Value (AOV), Repeat Customer Rate, and Product/Customer performance.
+- **Root-Cause Anomaly Diagnostics:** Deterministic diagnostics that identify revenue drops, high cancellation spikes, and dormant customer cohorts.
+- **Safe Read-Only SQL Inspection:** Integrated read-only SQL execution environment secured with keyword and table whitelisting guardrails.
+- **Multilingual Support:** Fully responsive bilingual AI reasoning capable of understanding and answering in fluent Arabic or professional English.
 
 ---
 
@@ -19,37 +20,37 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                        DATA SOURCES (Person 1)                               │
-│   CSV Uploads │ Mock E-Commerce API │ Spreadsheets │ POS Systems             │
+│                              DATA SOURCES                                    │
+│   CSV Imports │ Stripe Payments │ HubSpot CRM │ POS Terminals │ E-Commerce   │
 └───────────────────────────────┬──────────────────────────────────────────────┘
                                 │
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                     ETL PIPELINE — Person 1                                  │
-│  Ingest → Validate → Clean → Deduplicate → Load                              │
-│  • raw_records (original JSON preserved)                                     │
-│  • data_quality_errors (logged, not dropped)                                 │
-│  • Clean tables: customers, orders, order_items, products                    │
+│                         INGESTION & ETL PIPELINE                             │
+│  Validate → Sanitize → Deduplicate → Load                                    │
+│  • Raw audit trail preserved in raw_records                                  │
+│  • Data quality errors tracked in data_quality_errors                        │
+│  • Normalized tables: customers, orders, order_items, products               │
 └───────────────────────────────┬──────────────────────────────────────────────┘
                                 │
                     ┌───────────┴───────────┐
                     ▼                       ▼
 ┌───────────────────────────┐  ┌────────────────────────────────────────────┐
-│  ANALYTICS ENGINE          │  │  AI AGENT ENGINE — Person 3                │
-│  Person 2                  │  │  • Natural Language Query Processing        │
-│  • KPI computation         │  │  • 9 intent classifiers                    │
-│  • Revenue / AOV / Churn   │  │  • SQL Safety Sandbox (read-only)          │
-│  • Daily trends            │  │  • Anomaly Diagnosis                       │
-│  • Customer health         │  │  • Strategic Recommendations               │
-└───────────┬───────────────┘  │  • Optional LLM synthesis (Gemini/OpenAI)  │
+│     ANALYTICS ENGINE      │  │           AI ANALYST ENGINE                │
+│  • Overview KPIs          │  │  • Natural Language Query Processing       │
+│  • Revenue & Sales Trends │  │  • Bilingual Arabic & English Reasoning    │
+│  • AOV & Customer Health  │  │  • Deterministic Analytical Engine         │
+│  • Dynamic Alert Rules    │  │  • Root-Cause Anomaly Diagnostics          │
+│  • CSV Analytics Export   │  │  • Strategic Action Plans                  │
+└───────────┬───────────────┘  │  • Optional LLM Synthesis (Gemini/OpenAI)  │
             │                  └──────────────────┬─────────────────────────┘
             │                                     │
             └──────────────┬──────────────────────┘
                            ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│                    REACT DASHBOARD — Person 2 & 3                            │
-│  KPI Cards │ Revenue Charts │ Product Performance │ AI Copilot Chat Modal   │
-│  Recommendations Tab │ Anomaly Diagnosis │ Safe SQL Runner                  │
+│                 CLEARVIEW BI — MODERN REACT WORKSPACE                        │
+│  Workspace Navigation: Overview │ AI Analyst │ Data Sources │ Activity       │
+│  Executive Green Design System │ Accessible │ Dark/Light Modes │ Mobile 390px │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -57,227 +58,84 @@
 
 ## 🚀 Quick Start
 
-### Option 1: Docker Compose (Recommended — All-in-One)
+### Option 1: Docker Compose
 
 ```bash
 cd ai-bi-agent
-cp .env.example .env          # Copy env vars (add API keys for LLM features)
+cp .env.example .env          # Set environment configuration
 docker compose up --build
 ```
 
-| Service | URL |
+| Service | Address |
 |---|---|
-| FastAPI Backend + Swagger | http://localhost:8000/docs |
-| React Dashboard | http://localhost:5173 |
-| Mock E-Commerce API | http://localhost:8001 |
-| Health Check | http://localhost:8000/api/v1/health |
+| Frontend Workspace | http://localhost:5173 |
+| FastAPI Backend API | http://localhost:8000 |
+| Interactive API Docs | http://localhost:8000/docs |
+| System Health Check | http://localhost:8000/api/v1/health |
+
+---
 
 ### Option 2: Local Development
 
+#### 1. Backend Setup (FastAPI & SQLite / PostgreSQL)
+
 ```bash
 cd ai-bi-agent
 
-# --- Backend ---
+# Create and activate virtual environment
 python -m venv .venv
-.venv\Scripts\activate           # Windows
-# source .venv/bin/activate      # Linux/macOS
+.venv\Scripts\activate           # On Windows
+# source .venv/bin/activate      # On Linux/macOS
 
+# Install dependencies
 pip install -r requirements.txt
-python scripts/init_db.py        # Initialize DB + seed data sources
 
-# Terminal 1: Mock API
-uvicorn mock_api.main:app --host 0.0.0.0 --port 8001
+# Initialize database
+python scripts/init_db.py
 
-# Terminal 2: Main API
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Launch FastAPI backend
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-# --- Frontend ---
-cd frontend
+#### 2. Frontend Setup (React + TypeScript + Vite)
+
+```bash
+cd ai-bi-agent/frontend
+
+# Install node dependencies
 npm install
-npm run dev                      # http://localhost:5173
+
+# Start development server
+npm run dev
 ```
 
----
-
-## 🗄️ Database Schema
-
-Full interface contract: [`ai-bi-agent/DATABASE_CONTRACT.md`](./ai-bi-agent/DATABASE_CONTRACT.md)
-
-| Table | Description |
-|---|---|
-| `data_sources` | Registered ingestion platforms |
-| `ingestion_runs` | Execution audit log (status, record counters) |
-| `raw_records` | Original raw JSON payloads (preserved for compliance) |
-| `data_quality_errors` | Records failing validation with exact failure cause |
-| `customers` | Clean, deduplicated customer records |
-| `orders` | Clean, normalized sales & orders |
-| `order_items` | Line items with FK to orders & products |
-| `products` | Product catalog |
+Visit **http://localhost:5173** to access the application.
 
 ---
 
-## 📡 API Reference
+## 🔒 Security & Data Integrity
 
-Interactive Swagger docs at `http://localhost:8000/docs`.
-
-### Person 1 — Data Ingestion & Pipeline
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/upload/csv` | Upload CSV (customers, orders, or products) |
-| `GET` | `/api/v1/sources` | List registered data sources |
-| `POST` | `/api/v1/sources` | Register a new source |
-| `POST` | `/api/v1/pipelines/trigger` | Trigger API-based ingestion |
-| `GET` | `/api/v1/pipelines/runs` | Execution history |
-| `GET` | `/api/v1/pipelines/summary` | Aggregate pipeline status |
-| `GET` | `/api/v1/data/customers` | Query clean customers |
-| `GET` | `/api/v1/data/orders` | Query clean orders |
-| `GET` | `/api/v1/data/products` | Query clean products |
-| `GET` | `/api/v1/data/quality-errors` | Failed records with raw payloads |
-
-### Person 2 — Analytics & KPIs
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/v1/analytics/overview` | Headline KPIs (revenue, AOV, orders, churn) |
-| `GET` | `/api/v1/analytics/revenue-summary` | Total orders, revenue, AOV |
-| `GET` | `/api/v1/analytics/sales-by-date` | Daily sales trend |
-| `GET` | `/api/v1/analytics/sales-by-product` | Revenue & units per product |
-| `GET` | `/api/v1/analytics/customer-frequency` | Order count & LTV per customer |
-| `GET` | `/api/v1/analytics/ai-context` | Full analytics context snapshot for AI Agent |
-
-### Person 3 — AI Business Intelligence Agent
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/agent/query` | Natural language Q&A about your business data |
-| `POST` | `/api/v1/agent/recommendations` | Strategic action plan (5 prioritized recommendations) |
-| `POST` | `/api/v1/agent/diagnose` | Root-cause anomaly diagnosis |
-| `POST` | `/api/v1/agent/sql` | Safe SQL sandbox (read-only, whitelisted tables) |
-| `GET` | `/api/v1/agent/suggestions` | Context-aware prompt suggestions |
-| `GET` | `/api/v1/agent/capabilities` | Schema metadata & guardrail info |
+- **Strict Read-Only SQL:** Queries processed by the AI Analyst must begin with `SELECT` or `WITH`. Prohibited keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `EXEC`) are blocked before database execution.
+- **Server-Side Credentials:** API keys and credentials for third-party platforms are stored strictly on the backend environment—never exposed to or stored in client browsers.
+- **Accurate State Reporting:** Real status checks via `/api/v1/health`. Indicators reflect verifiable database and connector states rather than simulated metrics.
 
 ---
 
-## 🧠 Person 3 — AI Agent Features
-
-### Natural Language Query Examples
-```
-"What was my revenue last month?"
-"Which products are selling the best?"
-"How many customers churned this week?"
-"Show me the top 5 customers by lifetime value"
-"Why did my cancellation rate spike?"
-```
-
-### SQL Safety Sandbox
-- ✅ Allows: `SELECT`, `WITH`, `EXPLAIN` on 8 whitelisted tables
-- ❌ Blocks: `DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, multi-statement injection, system catalog access
-
-### Anomaly Diagnosis
-Detects revenue drops, cancellation spikes, and churn risk with root-cause analysis and mitigation steps.
-
-### Strategic Recommendations
-5 prioritized business actions: AOV bundling, win-back campaigns, inventory optimization, cancellation reduction, category expansion.
-
-### LLM Integration (Optional)
-Set `GEMINI_API_KEY` or `OPENAI_API_KEY` in `.env` to enable AI-synthesized narrative responses. Falls back gracefully to deterministic engine when no key is set.
-
----
-
-## 🖥️ Frontend Dashboard
-
-Built with **React 19 + TypeScript + Vite + Tailwind CSS**.
-
-- 📊 **KPI Cards** — Revenue, orders, AOV, churn rate at a glance
-- 📈 **Revenue Charts** — Daily trends, product performance breakdowns
-- 🤖 **AI Copilot Modal** (5 tabs):
-  - **Chat** — NL Q&A with quick prompt pills and follow-up suggestions
-  - **Action Plan** — Lazy-loaded strategic recommendations with checklists
-  - **Anomaly Diagnosis** — Severity-badged root causes and mitigations
-  - **SQL Runner** — Write and execute safe SELECT queries interactively
-  - **Raw Context** — Full analytics JSON snapshot from Person 2
-
-## 🔌 Live Integrations
-
-The backend supports read-only HubSpot and Stripe connectors in addition to CSV uploads and the synthetic mock e-commerce API. Add `HUBSPOT_ACCESS_TOKEN` and/or `STRIPE_SECRET_KEY` to `ai-bi-agent/.env`, restart the backend, then register the source and sync it from the dashboard. HubSpot contacts map to customers; Stripe PaymentIntents map to completed, canceled, or refunded orders. CRM deals are not counted as sales, and Stripe currency conversion is not implemented.
-
----
-
-## 🧪 Test Suite
-
-**112 tests passing** across unit and integration levels:
+## 🛠️ Testing & Verification
 
 ```bash
+# Frontend build & lint
+cd ai-bi-agent/frontend
+npm run lint
+npm run build
+
+# Backend unit & integration tests
 cd ai-bi-agent
-pytest -v
-```
-
-| Test File | Tests | Description |
-|---|---|---|
-| `tests/unit/test_cleaner.py` | 26 | Data cleaning & normalization |
-| `tests/unit/test_deduplication.py` | 5 | Duplicate detection logic |
-| `tests/unit/test_validator.py` | 13 | Field validation rules |
-| `tests/unit/test_analytics_service.py` | 21 | KPI computation |
-| `tests/unit/test_ai_agent_service.py` | 21 | AI Agent + SQL safety |
-| `tests/unit/test_platform_connectors.py` | 3 | HubSpot and Stripe connector mapping |
-| `tests/integration/test_ingestion_workflow.py` | 10 | End-to-end ETL pipeline |
-| `tests/integration/test_api_endpoints.py` | 7 | Person 1 API endpoints |
-| `tests/integration/test_analytics_api.py` | 6 | Person 2 analytics API |
-
----
-
-## 🎬 Demo Scripts
-
-```bash
-cd ai-bi-agent
-
-# Person 1: Verify ETL pipeline with dirty data
-python scripts/verify_demo.py
-
-# Person 3: 7-step AI Agent demonstration
-python scripts/demo_ai_agent.py
-
-# Seed analytics demo data
-python scripts/seed_demo_analytics.py
+pytest tests/unit/ tests/integration/ -v
 ```
 
 ---
 
-## ⚙️ Environment Variables
+## 📄 License
 
-Copy `.env.example` to `.env` and configure:
-
-```env
-# Database
-DATABASE_URL=postgresql://bi_user:bi_password@localhost:5432/bi_db
-
-# Mock API
-MOCK_API_BASE_URL=http://localhost:8001
-
-# Optional live integrations
-HUBSPOT_ACCESS_TOKEN=
-STRIPE_SECRET_KEY=
-
-# Person 3 — AI Agent (optional, enables LLM synthesis)
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
-AI_AGENT_MODEL=gemini-2.0-flash
-AI_AGENT_TEMPERATURE=0.3
-```
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Backend** | FastAPI + Pydantic + SQLAlchemy 2.0 |
-| **Database** | PostgreSQL 16 (SQLite for local/test) |
-| **Data Processing** | Pandas + NumPy |
-| **Scheduler** | APScheduler |
-| **Frontend** | React 19 + TypeScript + Vite + Tailwind CSS |
-| **Charts** | Recharts |
-| **AI / LLM** | Google Gemini / OpenAI (optional) |
-| **Containerization** | Docker + Docker Compose |
-| **Testing** | pytest + FastAPI TestClient |
+Internal proprietary release for small business analytics management.
