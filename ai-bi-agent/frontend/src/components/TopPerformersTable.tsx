@@ -28,18 +28,19 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
 
   const isProducts = tab === "products";
 
-  const filteredProducts = topProducts.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const q = searchTerm.toLowerCase();
+  const filteredProducts = topProducts.filter((p) => {
+    const name = (p.name || "").toLowerCase();
+    const sku = (p.sku || "").toLowerCase();
+    const category = (p.category || "").toLowerCase();
+    return name.includes(q) || sku.includes(q) || category.includes(q);
+  });
 
-  const filteredCustomers = topCustomers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCustomers = topCustomers.filter((c) => {
+    const name = (c.name || "").toLowerCase();
+    const email = (c.email || "").toLowerCase();
+    return name.includes(q) || email.includes(q);
+  });
 
   return (
     <div className="glass-card" style={{ padding: "24px", marginBottom: "24px" }}>

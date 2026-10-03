@@ -12,6 +12,17 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health, sources, uploads, pipelines, data, analytics, agent
 from app.config import get_settings
+from app.database import Base, engine
+from app.models import (  # noqa: F401 — register models before create_all
+    Customer,
+    DataQualityError,
+    DataSource,
+    IngestionRun,
+    Order,
+    OrderItem,
+    Product,
+    RawRecord,
+)
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 
@@ -36,6 +47,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting AI Business Intelligence Agent — Data Engineering Layer")
+    Base.metadata.create_all(bind=engine)
     start_scheduler()
     yield
     stop_scheduler()
@@ -59,7 +71,13 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

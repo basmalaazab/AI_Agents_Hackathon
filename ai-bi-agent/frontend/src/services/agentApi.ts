@@ -9,8 +9,9 @@ import type {
   PromptSuggestion,
   AgentCapabilities,
 } from "../types/agent";
+import { API_V1 } from "./config";
 
-const AGENT_BASE_URL = "http://localhost:8000/api/v1/agent";
+const AGENT_BASE_URL = `${API_V1}/agent`;
 
 export async function askAIAgent(
   query: string,

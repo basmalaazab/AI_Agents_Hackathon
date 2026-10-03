@@ -5,9 +5,36 @@ import type {
   CustomerAnalyticsData,
   BusinessAlert,
 } from "../types/analytics";
+import { API_V1 } from "./config";
 
+const API_BASE_URL = `${API_V1}/analytics`;
 
-const API_BASE_URL = "http://localhost:8000/api/v1/analytics";
+export interface DataSourceInfo {
+  id: string;
+  name: string;
+  source_type: string;
+  description: string | null;
+  is_active: boolean;
+}
+
+export interface PipelineSummary {
+  total_runs: number;
+  total_quality_errors: number;
+  total_customers: number;
+  total_orders: number;
+  total_products: number;
+}
+
+export interface IngestionRunResult {
+  id: string;
+  status: string;
+  records_fetched: number;
+  records_valid: number;
+  records_invalid: number;
+  records_inserted: number;
+  records_duplicate: number;
+  error_message: string | null;
+}
 
 export async function fetchOverviewKPIs(
   dateRange: string = "30d",
@@ -117,4 +144,56 @@ export function getExportCSVUrl(
   if (endDate) params.append("end_date", endDate);
 
   return `${API_BASE_URL}/export/csv?${params.toString()}`;
+}
+
+export async function fetchDataSources(): Promise<DataSourceInfo[]> {
+  const res = await fetch(`${API_V1}/sources`);
+  if (!res.ok) throw new Error("Failed to fetch data sources");
+  return res.json();
+}
+
+export async function fetchPipelineSummary(): Promise<PipelineSummary> {
+  const res = await fetch(`${API_V1}/pipelines/summary`);
+  if (!res.ok) throw new Error("Failed to fetch pipeline summary");
+  return res.json();
+}
+
+export async function triggerPipeline(
+  sourceId: string,
+  recordType: "customer" | "product" | "order"
+): Promise<IngestionRunResult> {
+  const res = await fetch(`${API_V1}/pipelines/trigger`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source_id: sourceId, record_type: recordType }),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || "Failed to trigger pipeline");
+  }
+  return res.json();
+}
+
+export async function uploadCsvFile(
+  file: File,
+  recordType: "customer" | "product" | "order",
+  sourceName: string
+): Promise<IngestionRunResult> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("record_type", recordType);
+  form.append("source_name", sourceName);
+
+  const res = await fetch(`${API_V1}/upload/csv`, {
+    method: "POST",
+    body: form,
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const detail = errData.detail;
+    throw new Error(
+      typeof detail === "string" ? detail : "Failed to upload CSV"
+    );
+  }
+  return res.json();
 }

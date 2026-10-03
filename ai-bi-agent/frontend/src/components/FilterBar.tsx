@@ -1,11 +1,13 @@
 import React from "react";
 import { Calendar, Filter, RefreshCw } from "lucide-react";
+import type { DataSourceInfo } from "../services/api";
 
 interface FilterBarProps {
   dateRange: string;
   onSelectDateRange: (range: string) => void;
   sourceName: string;
   onSelectSourceName: (source: string) => void;
+  sources: DataSourceInfo[];
   startDate: string;
   onStartDateChange: (date: string) => void;
   endDate: string;
@@ -25,6 +27,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onEndDateChange,
   onRefresh,
   isLoading,
+  sources,
 }) => {
   const presets = [
     { label: "Today", value: "today" },
@@ -97,10 +100,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               onChange={(e) => onSelectSourceName(e.target.value)}
             >
               <option value="">All Data Sources</option>
-              <option value="shopify_store">Shopify Store</option>
-              <option value="amazon_seller">Amazon Marketplace</option>
-              <option value="pos_terminal">Retail POS System</option>
-              <option value="demo_csv_store">Demo CSV Store</option>
+              {sources.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name} ({s.source_type})
+                </option>
+              ))}
             </select>
           </div>
 

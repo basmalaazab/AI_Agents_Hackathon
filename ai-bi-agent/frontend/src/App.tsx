@@ -7,15 +7,19 @@ import { CategoryBreakdownChart } from "./components/CategoryBreakdownChart";
 import { TopPerformersTable } from "./components/TopPerformersTable";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { AIChatCopilotModal } from "./components/AIChatCopilotModal";
+import { DataSourcesPanel } from "./components/DataSourcesPanel";
 import {
-
   fetchOverviewKPIs,
   fetchRevenueTrends,
   fetchSalesBreakdown,
   fetchCustomerAnalytics,
   fetchBusinessAlerts,
   fetchAIContext,
+  fetchDataSources,
+  fetchPipelineSummary,
   getExportCSVUrl,
+  type DataSourceInfo,
+  type PipelineSummary,
 } from "./services/api";
 import type {
   OverviewKPIs,
@@ -44,6 +48,8 @@ export const App: React.FC = () => {
   const [customers, setCustomers] = useState<CustomerAnalyticsData | null>(null);
   const [alerts, setAlerts] = useState<BusinessAlert[]>([]);
   const [aiContextData, setAiContextData] = useState<any>(null);
+  const [dataSources, setDataSources] = useState<DataSourceInfo[]>([]);
+  const [pipelineSummary, setPipelineSummary] = useState<PipelineSummary | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,9 +100,31 @@ export const App: React.FC = () => {
     }
   }, [dateRange, sourceName, startDate, endDate]);
 
+  const loadSourcesAndSummary = useCallback(async () => {
+    try {
+      const [srcs, summary] = await Promise.all([
+        fetchDataSources(),
+        fetchPipelineSummary(),
+      ]);
+      setDataSources(srcs);
+      setPipelineSummary(summary);
+    } catch (err) {
+      console.debug("Source catalog unavailable", err);
+    }
+  }, []);
+
   useEffect(() => {
     loadAnalytics();
   }, [loadAnalytics]);
+
+  useEffect(() => {
+    loadSourcesAndSummary();
+  }, [loadSourcesAndSummary]);
+
+  const handleIngestComplete = useCallback(async () => {
+    await loadSourcesAndSummary();
+    await loadAnalytics();
+  }, [loadSourcesAndSummary, loadAnalytics]);
 
   const exportUrl = getExportCSVUrl(dateRange, sourceName, startDate, endDate);
 
@@ -122,6 +150,13 @@ export const App: React.FC = () => {
         onEndDateChange={setEndDate}
         onRefresh={loadAnalytics}
         isLoading={isLoading}
+        sources={dataSources}
+      />
+
+      <DataSourcesPanel
+        sources={dataSources}
+        summary={pipelineSummary}
+        onSourcesChanged={handleIngestComplete}
       />
 
       {/* Error Fallback Banner */}
