@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bi_postgres
+    environment:
+      POSTGRES_USER: bi_user
+      POSTGRES_PASSWORD: bi_password
+      POSTGRES_DB: bi_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bi_user -d bi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mock_api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mockapi
+    container_name: bi_mock_api
+    ports:
+      - "8001:8001"
+    environment:
+      - APP_ENV=development
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bi_app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://bi_user:bi_password@postgres:5432/bi_db
+      MOCK_API_URL: http://mock_api:8001
+      HUBSPOT_ACCESS_TOKEN: ${HUBSPOT_ACCESS_TOKEN:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      APP_ENV: development
+      LOG_LEVEL: INFO
+      SCHEDULER_INTERVAL_MINUTES: 60
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mock_api:
+        condition: service_started
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: bi_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_PROXY_TARGET: http://app:8000
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
