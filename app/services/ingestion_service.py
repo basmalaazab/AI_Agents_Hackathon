@@ -24,6 +24,7 @@ import pandas as pd
 from app.connectors.base import BaseConnector
 from app.models.data_source import DataSource
 from app.models.ingestion_run import IngestionRun, RunStatus
+from app.models.order import Order
 from app.pipeline import cleaner, loader, transformer
 from app.pipeline.validator import (
     ValidationResult,
@@ -261,6 +262,41 @@ class IngestionService:
 
             instances = transformer.transform_orders(df, source_name, customer_map)
             result, _ = loader.upsert_orders(self.db, instances)
+            external_ids = [order.external_id for order in instances]
+            persisted_orders = (
+                self.db.query(Order.external_id, Order.id)
+                .filter(
+                    Order.source_name == source_name,
+                    Order.external_id.in_(external_ids),
+                )
+                .all()
+            )
+            order_ids_by_external_id = {row.external_id: row.id for row in persisted_orders}
+
+            from app.models.order_item import OrderItem
+
+            orders_with_items = {
+                row.order_id
+                for row in (
+                    self.db.query(OrderItem.order_id)
+                    .filter(OrderItem.order_id.in_(list(order_ids_by_external_id.values())))
+                    .distinct()
+                    .all()
+                )
+            }
+            order_items = []
+            for _, row in df.iterrows():
+                external_id = str(row.get("order_id", "")).strip()
+                order_id = order_ids_by_external_id.get(external_id)
+                if order_id is not None and order_id not in orders_with_items:
+                    order_items.extend(
+                        transformer.transform_order_items(
+                            pd.DataFrame([row]), order_id
+                        )
+                    )
+            if order_items:
+                loader.insert_order_items(self.db, order_items)
+
             return result.inserted, result.duplicates
 
         raise ValueError(f"Unknown record_type={record_type!r}")

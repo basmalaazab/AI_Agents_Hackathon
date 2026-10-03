@@ -15,9 +15,10 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app.models import (
-    DataSource, IngestionRun, Customer, Order, Product, DataQualityError
+    DataSource, IngestionRun, Customer, Order, OrderItem, Product, DataQualityError
 )
 from app.models.ingestion_run import RunStatus
+from app.services.analytics_service import AnalyticsService
 from app.services.ingestion_service import IngestionService
 
 
@@ -154,6 +155,38 @@ class TestOrderIngestion:
         run2 = svc.run_csv_ingestion(sample_source, "order", VALID_ORDERS_CSV)
         assert run2.records_inserted == 0
         assert run2.records_duplicate == 3
+
+    def test_order_items_feed_product_analytics_without_duplicate_reruns(
+        self, db_session, sample_source
+    ):
+        csv_content = (
+            b"order_id,customer_id,order_date,total_amount,currency,product_name,quantity,unit_price,status\n"
+            b"ORD-ITEM-001,C001,2024-03-01,39.98,USD,Desk Lamp,2,19.99,completed\n"
+        )
+        svc = IngestionService(db_session)
+
+        first_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
+        item = db_session.query(OrderItem).one()
+        breakdown = AnalyticsService(db_session).get_sales_breakdown("all")
+
+        assert first_run.records_inserted == 1
+        assert item.product_name == "Desk Lamp"
+        assert item.quantity == 2
+        assert item.line_total == Decimal("39.98")
+        assert breakdown["top_products"][0]["name"] == "Desk Lamp"
+        assert breakdown["top_products"][0]["revenue"] == 39.98
+
+        db_session.query(OrderItem).delete()
+        db_session.commit()
+        second_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
+        assert second_run.records_inserted == 0
+        assert second_run.records_duplicate == 1
+        assert db_session.query(OrderItem).count() == 1
+
+        third_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
+        assert third_run.records_inserted == 0
+        assert third_run.records_duplicate == 1
+        assert db_session.query(OrderItem).count() == 1
 
 
 class TestRawRecordStorage:

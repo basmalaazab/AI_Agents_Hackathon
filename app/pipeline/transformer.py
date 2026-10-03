@@ -111,13 +111,16 @@ def transform_order_items(
         return items
 
     for _, row in df.iterrows():
+        product_name = _get(row, "product_name")
+        if not product_name:
+            continue
         qty = _int(row, "quantity", default=1)
         unit_price = _decimal(row, "unit_price") or Decimal("0")
         line_total = _decimal(row, "line_total") or (unit_price * qty)
 
         item = OrderItem(
             order_id=order_id,
-            product_name=str(row.get("product_name", "Unknown")),
+            product_name=product_name,
             sku=_get(row, "sku"),
             quantity=qty,
             unit_price=unit_price,
