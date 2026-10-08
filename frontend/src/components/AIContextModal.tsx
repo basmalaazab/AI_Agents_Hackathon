@@ -24,6 +24,7 @@ export const AIContextModal: React.FC<AIContextModalProps> = ({
 
   return (
     <div
+      role="presentation"
       style={{
         position: "fixed",
         top: 0,
@@ -40,6 +41,9 @@ export const AIContextModal: React.FC<AIContextModalProps> = ({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Analytics context for the AI Analyst"
         className="glass-card animate-fade-in"
         style={{
           width: "100%",
@@ -55,30 +59,30 @@ export const AIContextModal: React.FC<AIContextModalProps> = ({
         {/* Modal Header */}
         <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: "36px", height: "36px", borderRadius: "10px", background: "linear-gradient(135deg, var(--accent-indigo), var(--accent-emerald))", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Bot size={20} color="#fff" />
             </div>
             <div>
               <h3 style={{ fontSize: "1.15rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "6px" }}>
-                Person 3 — AI Agent Structured Analytics Payload <Sparkles size={16} color="#fbbf24" />
+                Analytics context for the AI Analyst <Sparkles size={16} color="var(--accent-amber)" />
               </h3>
               <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                This structured context is exposed via GET /api/v1/analytics/ai-context for Person 3's LLM reasoning
+                A snapshot of the business metrics used to answer your questions
               </p>
             </div>
           </div>
 
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
+          <button onClick={onClose} aria-label="Close analytics context" style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <X size={20} />
           </button>
         </div>
 
         {/* Modal Body */}
         <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
-          <div style={{ marginBottom: "16px", padding: "12px 16px", background: "rgba(99, 102, 241, 0.1)", borderRadius: "10px", border: "1px solid rgba(99, 102, 241, 0.2)", fontSize: "0.85rem", color: "#cbd5e1" }}>
-            💡 <strong>How Person 3's AI Agent will use this data:</strong>
+          <div style={{ marginBottom: "16px", padding: "12px 16px", background: "var(--card-subtle-bg)", borderRadius: "10px", border: "1px solid var(--card-subtle-border)", fontSize: "0.85rem", color: "var(--text-primary)" }}>
+            💡 <strong>What this data is for:</strong>
             <br />
-            When a user asks questions like <em>"Why did revenue drop this month?"</em> or <em>"Which product should we focus on next?"</em>, the AI Agent fetches this exact JSON payload directly to perform metric reasoning, anomaly diagnosis, and recommendation generation without scraping UI.
+            The analyst uses this summary to answer questions about revenue, customers, products, and trends. It cannot see information that has not been imported. If an external AI provider is configured on the backend, this summary and your question are sent to that provider to generate an answer.
           </div>
 
           <div style={{ position: "relative" }}>
@@ -93,15 +97,15 @@ export const AIContextModal: React.FC<AIContextModalProps> = ({
 
             <pre
               style={{
-                background: "#090d16",
+                background: "var(--code-bg)",
                 padding: "16px",
                 borderRadius: "12px",
                 fontSize: "0.8rem",
-                color: "#34d399",
+                color: "var(--code-text)",
                 fontFamily: "monospace",
                 overflowX: "auto",
                 maxHeight: "420px",
-                border: "1px solid rgba(255,255,255,0.06)",
+                border: "1px solid var(--card-border)",
               }}
             >
               {JSON.stringify(aiData, null, 2)}
@@ -112,7 +116,7 @@ export const AIContextModal: React.FC<AIContextModalProps> = ({
         {/* Modal Footer */}
         <div style={{ padding: "16px 24px", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "flex-end" }}>
           <button className="btn btn-primary" onClick={onClose}>
-            Close Inspector
+            Close
           </button>
         </div>
       </div>

@@ -57,6 +57,8 @@ def transform_products(
             description=_get(row, "description"),
             unit_price=_decimal(row, "unit_price"),
             currency=row.get("currency", "USD") or "USD",
+            stock_quantity=_int(row, "stock_quantity", default=None),
+            reorder_point=_int(row, "reorder_point", default=None),
         )
         products.append(p)
     return products
@@ -91,7 +93,11 @@ def transform_orders(
             status=str(row.get("status", "completed")),
             total_amount=_decimal(row, "total_amount") or Decimal("0"),
             currency=row.get("currency", "USD") or "USD",
-            total_amount_usd=_decimal(row, "total_amount_usd"),
+            total_amount_usd=(
+                _decimal(row, "total_amount_usd")
+                if (row.get("currency", "USD") or "USD") == "USD"
+                else None
+            ),
         )
         orders.append(o)
     return orders
@@ -151,7 +157,7 @@ def _decimal(row: pd.Series, col: str) -> Decimal | None:
         return None
 
 
-def _int(row: pd.Series, col: str, default: int = 0) -> int:
+def _int(row: pd.Series, col: str, default: int | None = 0) -> int | None:
     val = row.get(col)
     if val is None or (isinstance(val, float) and pd.isna(val)):
         return default

@@ -93,6 +93,10 @@ _PRODUCT_COLUMN_ALIASES: dict[str, str] = {
     "title": "product_name",
     "price": "unit_price",
     "cost": "unit_price",
+    "stock": "stock_quantity",
+    "inventory_quantity": "stock_quantity",
+    "quantity_on_hand": "stock_quantity",
+    "low_stock_threshold": "reorder_point",
 }
 
 
@@ -221,4 +225,20 @@ def _check_row(
                 }
             )
 
+    if record_type == "product":
+        for col in ("stock_quantity", "reorder_point"):
+            val = row.get(col)
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                continue
+            try:
+                number = float(str(val))
+                if number < 0 or not number.is_integer():
+                    raise ValueError
+            except (ValueError, TypeError):
+                row_errors.append({
+                    "row_index": idx,
+                    "error_type": "invalid_inventory_value",
+                    "error_message": f"{col} must be a non-negative whole number.",
+                    "raw_data": row.to_dict(),
+                })
     return row_errors

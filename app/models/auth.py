@@ -22,12 +22,47 @@ class AppUser(Base):
     full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="business_owner")
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
 
     chat_messages = relationship("UserChatMessage", back_populates="user", cascade="all, delete-orphan")
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_users.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class WorkspaceInvitation(Base):
+    __tablename__ = "workspace_invitations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    invited_email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=False, default="viewer")
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    created_by: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("app_users.id"), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 
 class UserChatMessage(Base):

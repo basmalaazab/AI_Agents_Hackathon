@@ -9,17 +9,18 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, text
+from sqlalchemy import case, func, text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.auth import get_current_user
 from app.models.customer import Customer
 from app.models.data_quality_error import DataQualityError
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
 
-router = APIRouter(prefix="/data", tags=["data"])
+router = APIRouter(prefix="/data", tags=["data"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/customers", summary="Sample of clean customer records")
@@ -81,8 +82,8 @@ def revenue_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
     row = (
         db.query(
             func.count(Order.id).label("total_orders"),
-            func.coalesce(func.sum(Order.total_amount_usd), 0).label("total_revenue_usd"),
-            func.coalesce(func.avg(Order.total_amount_usd), 0).label("avg_order_value_usd"),
+            func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("total_revenue_usd"),
+            func.coalesce(func.avg(case((Order.currency == "USD", Order.total_amount_usd), else_=None)), 0).label("avg_order_value_usd"),
             func.count(func.distinct(Order.customer_id)).label("unique_customers"),
         )
         .filter(~Order.status.in_(["cancelled", "refunded"]))
@@ -106,7 +107,7 @@ def sales_by_date(
         db.query(
             func.date(Order.order_date).label("sale_date"),
             func.count(Order.id).label("order_count"),
-            func.coalesce(func.sum(Order.total_amount_usd), 0).label("revenue_usd"),
+            func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
         )
         .filter(~Order.status.in_(["cancelled", "refunded"]))
         .group_by(func.date(Order.order_date))
@@ -133,13 +134,13 @@ def sales_by_product(
         db.query(
             OrderItem.product_name,
             func.sum(OrderItem.quantity).label("total_units_sold"),
-            func.coalesce(func.sum(OrderItem.line_total), 0).label("total_revenue_usd"),
+            func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).label("total_revenue_usd"),
             func.count(func.distinct(OrderItem.order_id)).label("order_count"),
         )
         .join(Order, Order.id == OrderItem.order_id)
         .filter(~Order.status.in_(["cancelled", "refunded"]))
         .group_by(OrderItem.product_name)
-        .order_by(func.coalesce(func.sum(OrderItem.line_total), 0).desc())
+        .order_by(func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).desc())
         .limit(limit)
         .all()
     )

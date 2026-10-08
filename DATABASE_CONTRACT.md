@@ -1,235 +1,71 @@
-# Database Contract — AI BI Agent
+# Database and API Reference
 
-> **Audience:** Person 2 (Analytics & Dashboard) and Person 3 (AI Agent)
-> **Maintained by:** Person 1 (Data Engineering)
-> **Last updated:** 2024-10
+This document describes the data model and analytics endpoints currently used by Clearview BI. The database is managed through SQLAlchemy models; the exact database URL is configured with `DATABASE_URL`.
 
-This document defines the stable database interface that downstream components can rely on.
+## Core tables
 
----
+| Table | Purpose | Important fields |
+| --- | --- | --- |
+| `customers` | Customer records from each source | `source_name`, `external_id`, contact and location fields |
+| `orders` | Sales orders and their status | `source_name`, `external_id`, `customer_id`, `order_date`, `status`, `total_amount`, `currency`, `total_amount_usd` |
+| `order_items` | Products and quantities on an order | `order_id`, `product_id`, `product_name`, `sku`, `quantity`, `unit_price`, `line_total`, `currency` |
+| `products` | Product catalog and optional inventory balances | `source_name`, `external_id`, `name`, `sku`, `category`, `unit_price`, `currency`, `stock_quantity`, `reorder_point` |
+| `data_sources` | Registered import or connector sources | `name`, `source_type`, `is_active` |
+| `ingestion_runs` | Pipeline run status and record counts | source, status, timestamps, fetched/inserted/duplicate/invalid counts |
+| `raw_records` | Original ingested payloads for audit/debugging | run, source, record type, raw payload |
+| `data_quality_errors` | Validation failures retained for review | run, record type, error details, raw payload |
+| `workspaces` | Company data boundary | company name, workspace ID |
+| `app_users` | Company members and assigned role | email, role, workspace ID, password hash |
+| `auth_sessions` | Revocable, expiring login sessions | user ID, token hash, expiration |
+| `workspace_invitations` | Single-use invitations that expire after seven days | workspace, email, role, token hash, expiration, acceptance time |
 
-## Connection Details
+Orders and products are unique by `(source_name, external_id)`. A customer appearing in multiple source systems is not automatically matched to a single identity. `customer_id` on an order may be empty if its customer record was not ingested.
 
-| Setting | Value |
-|---------|-------|
-| Host | `localhost` (or `postgres` inside Docker) |
-| Port | `5432` |
-| Database | `bi_db` |
-| User | `bi_user` |
-| Password | `bi_password` (set in `.env`) |
-| Connection string | `postgresql://bi_user:bi_password@localhost:5432/bi_db` |
+## Currency and inventory limitations
 
-**Python (SQLAlchemy):**
-```python
-from sqlalchemy import create_engine
-engine = create_engine("postgresql://bi_user:bi_password@localhost:5432/bi_db")
-```
+The pipeline does not perform exchange-rate conversion. Only USD orders are included in revenue totals; orders in other currencies are excluded and surfaced in the AI context. Existing databases clear the incorrectly inferred USD value on non-USD orders at startup.
 
-**Read-only access for AI agent:** Use the same credentials but execute only `SELECT` statements. A dedicated read-only role can be created by running:
-```sql
-CREATE ROLE bi_reader WITH LOGIN PASSWORD 'readonly_password';
-GRANT CONNECT ON DATABASE bi_db TO bi_reader;
-GRANT USAGE ON SCHEMA public TO bi_reader;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO bi_reader;
-```
+Product CSV imports accept optional `stock_quantity` and `reorder_point` fields (also common aliases such as `inventory_quantity`, `quantity_on_hand`, and `low_stock_threshold`). The inventory-risk estimate uses the last 30 days of linked sales and flags zero stock, stock at/below reorder point, or estimated cover of 14 days or less. It does not account for reserved stock, supplier lead time, or safety stock.
 
----
+The analyst can prepare a review-only restock draft with `POST /api/v1/agent/inventory-reorder-draft`. The request supplies the product, source, supplier lead time, and extra cover days. The target stock is the greater of `ceil(last-30-day average daily sales × (lead time + extra cover))` and the imported reorder point; the suggested quantity is `max(target stock − current stock, 0)`. If there are no eligible sales, the imported reorder point can only restore stock to that point; without either sales or a reorder point, the API reports insufficient data. Drafts are not saved and no purchase order is submitted.
 
-## Clean Business Tables
+## Analytics endpoints
 
-These are the primary tables for analytics and AI queries.
+All endpoints are under `/api/v1` and accept date/source filters where applicable.
 
-### `customers`
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /analytics/overview` | KPI summary and period comparison |
+| `GET /analytics/revenue-trends` | Revenue, orders, and average order value over time |
+| `GET /analytics/sales-breakdown` | Product category, source, and top-product breakdowns |
+| `GET /analytics/customers` | Customer activity and repeat-purchase metrics |
+| `GET /analytics/alerts` | Business anomaly alerts |
+| `GET /analytics/inventory-risk` | Stock levels and estimated days of cover |
+| `GET /analytics/ai-context` | Structured analytics context for the business analyst |
+| `GET /analytics/export/csv` | Download analytics as CSV |
+| `POST /agent/inventory-reorder-draft` | Calculate a restock draft for human review; does not submit an order |
+| `GET /sources` | List registered data sources |
+| `GET /sources/integration-readiness` | Report whether the backend has a Stripe key configured; does not expose the key |
+| `POST /sources` | Register a supported source type |
+| `GET /pipelines/summary` | Ingestion run and record totals |
+| `POST /pipelines/trigger` | Run ingestion; send `source_id` and `record_type` in the request body |
+| `GET /pipelines/runs` | List recent ingestion runs |
+| `POST /upload/csv` | Upload and ingest a CSV file |
+| `GET /health` | API and database health |
+| `POST /auth/invitations` | Manager-only invitation; sends email when SMTP is configured and otherwise returns a secure share link |
+| `GET /auth/team` | List company members and pending invitations |
+| `GET /auth/invitations/preview` | Validate an invitation link and show its company and role |
+| `POST /auth/invitations/accept` | Accept an invitation and create a manager or viewer account in that workspace |
+| `PATCH /auth/team/{member_id}/role` | Manager-only role update |
+| `DELETE /auth/team/{member_id}` | Manager-only member removal |
+| `DELETE /auth/invitations/{invitation_id}` | Manager-only invitation revocation |
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID (PK) | Internal surrogate key |
-| `source_name` | VARCHAR(120) | Data source name (e.g. `csv_upload`, `mock_ecommerce_api`) |
-| `external_id` | VARCHAR(255) | ID from the source system |
-| `email` | VARCHAR(255) | Cleaned, lowercased email address |
-| `first_name` | VARCHAR(120) | Title-cased first name |
-| `last_name` | VARCHAR(120) | Title-cased last name |
-| `phone` | VARCHAR(50) | Phone number as provided |
-| `city` | VARCHAR(120) | Title-cased city |
-| `country` | VARCHAR(120) | Title-cased country |
-| `created_at` | TIMESTAMPTZ | Record creation time (UTC) |
-| `updated_at` | TIMESTAMPTZ | Last update time (UTC) |
+For request/response schemas and interactive examples, start the API and open `/docs`.
 
-**Unique constraint:** `(source_name, external_id)`
+## Supported source types
 
-> ⚠️ Cross-platform identity resolution is NOT implemented. A customer on platform A and the same person on platform B will appear as two separate rows. Do NOT assume two rows with the same email are the same customer without additional verification.
+The source registry contains `csv`, `spreadsheet`, `mock_api`, `stripe`, and `hubspot`. Stripe uses the backend-only `STRIPE_SECRET_KEY`; the Data Sources screen reports whether it is configured and shows recent ingestion runs. Source registration only creates a record; a sync must complete successfully to confirm access.
 
----
+## Read-only SQL
 
-### `orders`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID (PK) | Internal surrogate key |
-| `source_name` | VARCHAR(120) | Data source |
-| `external_id` | VARCHAR(255) | Order ID from source system |
-| `customer_id` | UUID (FK → customers.id) | Linked customer (nullable) |
-| `order_date` | TIMESTAMPTZ | Order timestamp (UTC) |
-| `status` | VARCHAR(50) | `completed`, `pending`, `cancelled`, `refunded` |
-| `total_amount` | NUMERIC(12,2) | Order total in original currency |
-| `currency` | CHAR(3) | ISO currency code (e.g. `USD`, `GBP`) |
-| `total_amount_usd` | NUMERIC(12,2) | Amount normalised to USD (MVP: same as total_amount, FX conversion is a future extension) |
-| `created_at` | TIMESTAMPTZ | Record creation time |
-| `updated_at` | TIMESTAMPTZ | Last update time |
-
-**Unique constraint:** `(source_name, external_id)`
-
----
-
-### `order_items`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID (PK) | Internal surrogate key |
-| `order_id` | UUID (FK → orders.id) | Parent order |
-| `product_id` | UUID (FK → products.id, nullable) | Linked product (if resolved) |
-| `product_name` | VARCHAR(255) | Product name as ingested |
-| `sku` | VARCHAR(120) | Stock-keeping unit |
-| `quantity` | INTEGER | Units purchased |
-| `unit_price` | NUMERIC(12,2) | Price per unit |
-| `line_total` | NUMERIC(12,2) | `quantity × unit_price` |
-| `currency` | CHAR(3) | ISO currency code |
-
----
-
-### `products`
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID (PK) | Internal surrogate key |
-| `source_name` | VARCHAR(120) | Data source |
-| `external_id` | VARCHAR(255) | Product ID from source system |
-| `name` | VARCHAR(255) | Product name |
-| `sku` | VARCHAR(120) | SKU |
-| `category` | VARCHAR(120) | Product category |
-| `description` | TEXT | Product description |
-| `unit_price` | NUMERIC(12,2) | Standard price |
-| `currency` | CHAR(3) | ISO currency code |
-
-**Unique constraint:** `(source_name, external_id)`
-
----
-
-## Pipeline / Audit Tables
-
-These tables are managed by the data engineering layer. Analytics and AI components should treat them as read-only reference data.
-
-### `data_sources` — registered ingestion sources
-### `ingestion_runs` — one row per pipeline execution
-### `raw_records` — original JSON payloads (for debugging)
-### `data_quality_errors` — validation failures with raw_data for inspection
-
----
-
-## Example SQL Queries
-
-### Total revenue (excluding cancelled/refunded)
-```sql
-SELECT
-    COUNT(*) AS total_orders,
-    SUM(total_amount_usd) AS total_revenue_usd,
-    AVG(total_amount_usd) AS avg_order_value_usd
-FROM orders
-WHERE status NOT IN ('cancelled', 'refunded');
-```
-
-### Daily sales trend
-```sql
-SELECT
-    DATE(order_date AT TIME ZONE 'UTC') AS sale_date,
-    COUNT(*) AS order_count,
-    SUM(total_amount_usd) AS revenue_usd
-FROM orders
-WHERE status NOT IN ('cancelled', 'refunded')
-GROUP BY sale_date
-ORDER BY sale_date DESC;
-```
-
-### Top products by revenue
-```sql
-SELECT
-    oi.product_name,
-    SUM(oi.quantity) AS units_sold,
-    SUM(oi.line_total) AS revenue_usd
-FROM order_items oi
-JOIN orders o ON o.id = oi.order_id
-WHERE o.status NOT IN ('cancelled', 'refunded')
-GROUP BY oi.product_name
-ORDER BY revenue_usd DESC
-LIMIT 10;
-```
-
-### Customer purchase frequency
-```sql
-SELECT
-    c.email,
-    c.first_name,
-    c.last_name,
-    COUNT(o.id) AS order_count,
-    SUM(o.total_amount_usd) AS lifetime_value_usd
-FROM customers c
-JOIN orders o ON o.customer_id = c.id
-WHERE o.status NOT IN ('cancelled', 'refunded')
-GROUP BY c.id, c.email, c.first_name, c.last_name
-ORDER BY lifetime_value_usd DESC;
-```
-
-### Sales by product category
-```sql
-SELECT
-    p.category,
-    COUNT(oi.id) AS line_items,
-    SUM(oi.line_total) AS revenue_usd
-FROM order_items oi
-JOIN products p ON p.id = oi.product_id
-JOIN orders o ON o.id = oi.order_id
-WHERE o.status NOT IN ('cancelled', 'refunded')
-GROUP BY p.category
-ORDER BY revenue_usd DESC;
-```
-
----
-
-## REST API Data Access (Alternative to Direct SQL)
-
-The data engineering service exposes read-only HTTP endpoints:
-
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/v1/data/customers` | Paginated clean customer records |
-| `GET /api/v1/data/orders` | Paginated clean order records |
-| `GET /api/v1/data/products` | Clean product catalogue |
-| `GET /api/v1/data/analytics/revenue-summary` | Aggregate revenue KPIs |
-| `GET /api/v1/data/analytics/sales-by-date` | Daily revenue series |
-| `GET /api/v1/data/analytics/sales-by-product` | Revenue by product |
-| `GET /api/v1/data/customer-frequency` | Customer purchase frequency |
-
-### Person 2 Analytics APIs (Built for Dashboard & Person 3 AI Agent)
-
-| Endpoint | Description | Query Parameters |
-|----------|-------------|------------------|
-| `GET /api/v1/analytics/overview` | Executive KPI cards with period-over-period comparison | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/revenue-trends` | Time-series daily/monthly revenue & order volume | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/sales-breakdown` | Category breakdown, sales channel share, & top products | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/customers` | Customer growth, repeat rate, frequency cohorts, & top LTV | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/alerts` | Automated business anomaly detection signals | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/ai-context` | **Person 3 AI Agent Dataset Payload** (unified JSON for LLM reasoning) | `date_range`, `source_name`, `start_date`, `end_date` |
-| `GET /api/v1/analytics/export/csv` | Downloadable CSV analytics report | `date_range`, `source_name`, `start_date`, `end_date` |
-
-Base URL: `http://localhost:8000`
-
-
----
-
-## Data Quality Notes
-
-- Records failing validation are logged in `data_quality_errors` and are never silently discarded.
-- Duplicate records from re-ingestion are skipped (idempotent pipeline).
-- `total_amount_usd` is currently equal to `total_amount` — FX conversion is a recommended extension.
-- `customer_id` in orders may be NULL if the customer record was not ingested before the order.
-- Cross-platform customer identity resolution is out of scope for the MVP.
+Business APIs require a bearer session. Each account belongs to one company workspace; ORM reads are filtered to that workspace's data sources, while managers can invite additional users with manager or viewer roles. Viewer roles can read analytics but cannot upload data, change data sources, or start pipelines. Direct SQL execution is disabled for authenticated workspaces because arbitrary SQL cannot be tenant-filtered by ORM rules. AI responses include the analysis period, company source scope, record counts, and a data-sufficiency note.

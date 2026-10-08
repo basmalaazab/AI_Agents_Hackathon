@@ -1,0 +1,11 @@
+product_id,product_name,sku,category,unit_price,currency,stock_quantity,reorder_point
+PROD-TECH-001,Wireless Noise-Canceling Headphones,TECH-001,Electronics,199.99,USD,42,12
+PROD-TECH-002,Ergonomic Mechanical Keyboard,TECH-002,Electronics,129.99,USD,27,10
+PROD-TECH-003,4K Ultra HD Monitor 27-inch,TECH-003,Electronics,349.99,USD,4,8
+PROD-APP-001,Organic Cotton Hoodie,APP-001,Apparel,65.00,USD,36,12
+PROD-APP-002,Slim Fit Denim Jeans,APP-002,Apparel,85.00,USD,31,12
+PROD-APP-003,Running Performance Sneakers,APP-003,Apparel,120.00,USD,45,15
+PROD-HOME-001,Smart LED Desk Lamp,HOME-001,Home & Office,45.00,USD,33,10
+PROD-HOME-002,Stainless Steel Water Bottle 1L,HOME-002,Home & Office,28.00,USD,55,15
+PROD-BEAUTY-001,Hydrating Facial Moisturizer,BEAUTY-001,Beauty & Care,34.00,USD,25,10
+PROD-BEAUTY-002,Natural Botanical Serum,BEAUTY-002,Beauty & Care,52.00,USD,38,12

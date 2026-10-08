@@ -23,8 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 
-from app.database import Base, engine, SessionLocal
-from app.models import DataSource, Customer, Product, Order, OrderItem
+from app.database import Base, engine, SessionLocal, ensure_workspace_columns
+from app.models import DataSource, Customer, Product, Order, OrderItem, Workspace
 
 
 def seed_rich_analytics_data():
@@ -33,7 +33,13 @@ def seed_rich_analytics_data():
     print("==================================================")
 
     Base.metadata.create_all(bind=engine)
+    ensure_workspace_columns()
     db = SessionLocal()
+    workspace = db.query(Workspace).first()
+    if workspace is None:
+        workspace = Workspace(name="Demo Company")
+        db.add(workspace)
+        db.commit()
 
     # 1. Register Data Sources
     sources = [
@@ -45,7 +51,7 @@ def seed_rich_analytics_data():
     for name, desc, stype in sources:
         existing = db.query(DataSource).filter_by(name=name).first()
         if not existing:
-            s = DataSource(name=name, source_type=stype, description=desc)
+            s = DataSource(name=name, source_type=stype, description=desc, workspace_id=workspace.id)
             db.add(s)
             db.commit()
             db.refresh(s)
@@ -68,7 +74,9 @@ def seed_rich_analytics_data():
     ]
 
     prod_objects = []
-    for name, sku, category, price in catalog:
+    for index, (name, sku, category, price) in enumerate(catalog):
+        stock = 4 if sku == "TECH-003" else 32 + index * 5
+        reorder = 8 if sku == "TECH-003" else 12
         existing_p = db.query(Product).filter_by(sku=sku).first()
         if not existing_p:
             p = Product(
@@ -80,10 +88,14 @@ def seed_rich_analytics_data():
                 description=f"High quality {name}",
                 unit_price=price,
                 currency="USD",
+                stock_quantity=stock,
+                reorder_point=reorder,
             )
             db.add(p)
             prod_objects.append(p)
         else:
+            existing_p.stock_quantity = stock
+            existing_p.reorder_point = reorder
             prod_objects.append(existing_p)
     db.commit()
 

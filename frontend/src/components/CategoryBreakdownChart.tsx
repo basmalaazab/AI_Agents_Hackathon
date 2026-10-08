@@ -30,6 +30,18 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
   }
 
   const { by_category, by_platform } = data;
+  const styles = getComputedStyle(document.documentElement);
+  const color = (token: string) => styles.getPropertyValue(token).trim();
+  const chartColors = [
+    color("--chart-primary"),
+    color("--chart-secondary"),
+    color("--chart-tertiary"),
+    color("--chart-quaternary"),
+  ];
+  const gridColor = color("--chart-grid");
+  const textMuted = color("--text-muted");
+  const textSecondary = color("--text-secondary");
+  const cardColor = color("--card-bg");
 
   // 1. Category Bar Chart
   const categoryLabels = by_category.map((c) => c.category);
@@ -39,15 +51,9 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
     labels: categoryLabels,
     datasets: [
       {
-        label: "Revenue ($)",
+        label: "Revenue amount",
         data: categoryRevenues,
-        backgroundColor: [
-          "rgba(99, 102, 241, 0.8)",
-          "rgba(20, 184, 166, 0.8)",
-          "rgba(139, 92, 246, 0.8)",
-          "rgba(244, 63, 94, 0.8)",
-          "rgba(245, 158, 11, 0.8)",
-        ],
+        backgroundColor: categoryLabels.map((_, index) => chartColors[index % chartColors.length]),
         borderRadius: 8,
       },
     ],
@@ -60,13 +66,13 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => ` Revenue: ${ctx.raw.toLocaleString()}`,
+          label: (ctx: any) => ` Revenue amount: ${Number(ctx.raw).toLocaleString()}`,
         },
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: "var(--text-muted)" } },
-      y: { grid: { color: "rgba(148, 163, 184, 0.12)" }, ticks: { color: "var(--text-muted)", callback: (v: any) => v.toLocaleString() } },
+      x: { grid: { display: false }, ticks: { color: textMuted } },
+      y: { grid: { color: gridColor }, ticks: { color: textMuted, callback: (v: any) => Number(v).toLocaleString() } },
     },
   };
 
@@ -79,14 +85,9 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
     datasets: [
       {
         data: platformRevenues,
-        backgroundColor: [
-          "rgba(99, 102, 241, 0.85)",
-          "rgba(16, 185, 129, 0.85)",
-          "rgba(245, 158, 11, 0.85)",
-          "rgba(244, 63, 94, 0.85)",
-        ],
+        backgroundColor: platformLabels.map((_, index) => chartColors[index % chartColors.length]),
         borderWidth: 2,
-        borderColor: "var(--card-bg)",
+        borderColor: cardColor,
       },
     ],
   };
@@ -97,11 +98,11 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
     plugins: {
       legend: {
         position: "bottom" as const,
-        labels: { color: "var(--text-secondary)", font: { size: 12 }, padding: 16 },
+        labels: { color: textSecondary, font: { size: 12 }, padding: 16 },
       },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => ` Revenue: ${ctx.raw.toLocaleString()}`,
+          label: (ctx: any) => ` Revenue amount: ${Number(ctx.raw).toLocaleString()}`,
         },
       },
     },
@@ -114,14 +115,14 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
       <div className="glass-card" style={{ padding: "24px" }}>
         <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "4px" }}>Revenue by Product Category</h3>
         <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
-          Sales distribution across product catalog
+          Revenue contribution by category
         </p>
         <div style={{ height: "240px" }}>
           {by_category.length > 0 ? (
             <Bar data={barData} options={barOptions} />
           ) : (
             <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-              No category data available
+          No category data is available for this period.
             </div>
           )}
         </div>
@@ -138,7 +139,7 @@ export const CategoryBreakdownChart: React.FC<CategoryBreakdownChartProps> = ({ 
             <Doughnut data={doughnutData} options={doughnutOptions} />
           ) : (
             <div style={{ display: "flex", height: "100%", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }}>
-              No channel data available
+          No source data is available for this period.
             </div>
           )}
         </div>

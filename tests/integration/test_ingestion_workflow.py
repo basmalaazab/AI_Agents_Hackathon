@@ -189,6 +189,23 @@ class TestOrderIngestion:
         assert db_session.query(OrderItem).count() == 1
 
 
+class TestProductInventoryIngestion:
+    def test_imports_and_refreshes_stock_fields(self, db_session, sample_source):
+        svc = IngestionService(db_session)
+        initial = b"product_id,product_name,sku,stock_quantity,reorder_point\nP-STOCK,Demo Product,SKU-1,9,5\n"
+        updated = b"product_id,product_name,sku,stock_quantity,reorder_point\nP-STOCK,Demo Product,SKU-1,3,5\n"
+
+        first_run = svc.run_csv_ingestion(sample_source, "product", initial)
+        product = db_session.query(Product).filter_by(source_name=sample_source.name, external_id="P-STOCK").one()
+        assert first_run.records_inserted == 1
+        assert product.stock_quantity == 9
+        assert product.reorder_point == 5
+
+        second_run = svc.run_csv_ingestion(sample_source, "product", updated)
+        db_session.refresh(product)
+        assert second_run.records_duplicate == 1
+        assert product.stock_quantity == 3
+
 class TestRawRecordStorage:
     def test_raw_records_stored(self, db_session, sample_source):
         from app.models.raw_record import RawRecord

@@ -115,6 +115,16 @@ class TestCleanOrders:
         result = clean_orders(df)
         assert result["total_amount"].iloc[0] == Decimal("149.99")
 
+    def test_does_not_label_non_usd_amount_as_usd(self):
+        df = pd.DataFrame({
+            "order_id": ["ORD-GBP"],
+            "order_date": ["2024-01-05"],
+            "total_amount": ["149.99"],
+            "currency": ["GBP"],
+        })
+        result = clean_orders(df)
+        assert pd.isna(result["total_amount_usd"].iloc[0])
+
     def test_sets_default_status(self):
         df = pd.DataFrame({
             "order_id": ["ORD-1"],

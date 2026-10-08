@@ -75,6 +75,10 @@ def upsert_products(
         )
         if existing:
             result.duplicates += 1
+            for field in ("name", "sku", "category", "description", "unit_price", "currency", "stock_quantity", "reorder_point"):
+                value = getattr(p, field)
+                if value is not None:
+                    setattr(existing, field, value)
             ext_to_id[p.external_id] = existing.id
         else:
             db.add(p)

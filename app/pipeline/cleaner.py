@@ -88,8 +88,8 @@ def clean_orders(df: pd.DataFrame) -> pd.DataFrame:
         clean_currency_code
     )
 
-    # Normalise total_amount_usd: for MVP assume USD (no FX conversion)
-    df["total_amount_usd"] = df["total_amount"]
+    # Preserve only actual USD as USD; never label another currency as USD.
+    df["total_amount_usd"] = df["total_amount"].where(df["currency"] == "USD")
 
     # Optional fields
     if "customer_id" in df.columns:
@@ -146,5 +146,9 @@ def clean_products(df: pd.DataFrame) -> pd.DataFrame:
         df["sku"] = df["sku"].apply(clean_string)
     if "category" in df.columns:
         df["category"] = df["category"].apply(clean_string)
+    for column in ("stock_quantity", "reorder_point"):
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
+            df[column] = df[column].where(df[column].isna() | (df[column] >= 0))
 
     return df

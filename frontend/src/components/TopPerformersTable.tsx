@@ -49,6 +49,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <button
             onClick={() => setTab("products")}
+            aria-pressed={isProducts}
             style={{
               display: "flex",
               alignItems: "center",
@@ -56,8 +57,8 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
               padding: "8px 16px",
               borderRadius: "10px",
               border: "none",
-              background: isProducts ? "var(--accent-indigo)" : "rgba(255,255,255,0.05)",
-              color: isProducts ? "#fff" : "var(--text-secondary)",
+              background: isProducts ? "var(--accent-indigo)" : "var(--card-subtle-bg)",
+              color: isProducts ? "var(--accent-on-primary)" : "var(--text-secondary)",
               fontWeight: 600,
               fontSize: "0.875rem",
               cursor: "pointer",
@@ -68,6 +69,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
 
           <button
             onClick={() => setTab("customers")}
+            aria-pressed={!isProducts}
             style={{
               display: "flex",
               alignItems: "center",
@@ -75,14 +77,14 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
               padding: "8px 16px",
               borderRadius: "10px",
               border: "none",
-              background: !isProducts ? "var(--accent-indigo)" : "rgba(255,255,255,0.05)",
-              color: !isProducts ? "#fff" : "var(--text-secondary)",
+              background: !isProducts ? "var(--accent-indigo)" : "var(--card-subtle-bg)",
+              color: !isProducts ? "var(--accent-on-primary)" : "var(--text-secondary)",
               fontWeight: 600,
               fontSize: "0.875rem",
               cursor: "pointer",
             }}
           >
-            <Users size={16} /> Top Customers (LTV)
+            <Users size={16} /> Top customers
           </button>
         </div>
 
@@ -90,6 +92,7 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
           <Search size={16} color="var(--text-muted)" style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }} />
           <input
             type="text"
+            aria-label={isProducts ? "Search products" : "Search customers"}
             placeholder={`Search ${isProducts ? "products..." : "customers..."}`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -102,21 +105,21 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
       {/* Table Content */}
       <div className="table-scroll-region" style={{ overflowX: "auto", maxWidth: "100%", minWidth: 0 }}>
         {isProducts ? (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+          <table aria-label="Top products for the selected period" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--card-border)", color: "var(--text-muted)" }}>
-                <th style={{ padding: "12px 16px" }}>Rank</th>
-                <th style={{ padding: "12px 16px" }}>Product Name</th>
-                <th style={{ padding: "12px 16px" }}>SKU</th>
-                <th style={{ padding: "12px 16px" }}>Category</th>
-                <th style={{ padding: "12px 16px" }}>Units Sold</th>
-                <th style={{ padding: "12px 16px" }}>Order Count</th>
-                <th style={{ padding: "12px 16px", textAlign: "right" }}>Total Revenue</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Rank</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Product</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>SKU</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Category</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Units sold</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Orders</th>
+                <th scope="col" style={{ padding: "12px 16px", textAlign: "right" }}>Revenue amount</th>
               </tr>
             </thead>
             <tbody>
               {filteredProducts.map((p, idx) => (
-                <tr key={p.name + idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <tr key={p.name + idx} style={{ borderBottom: "1px solid var(--card-border)" }}>
                   <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--accent-indigo)" }}>#{idx + 1}</td>
                   <td style={{ padding: "12px 16px", fontWeight: 600 }}>{p.name}</td>
                   <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>{p.sku}</td>
@@ -140,20 +143,20 @@ export const TopPerformersTable: React.FC<TopPerformersTableProps> = ({
             </tbody>
           </table>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+          <table aria-label="Top customers for the selected period" style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--card-border)", color: "var(--text-muted)" }}>
-                <th style={{ padding: "12px 16px" }}>Rank</th>
-                <th style={{ padding: "12px 16px" }}>Customer Name</th>
-                <th style={{ padding: "12px 16px" }}>Email</th>
-                <th style={{ padding: "12px 16px" }}>Channel</th>
-                <th style={{ padding: "12px 16px" }}>Orders Placed</th>
-                <th style={{ padding: "12px 16px", textAlign: "right" }}>Lifetime Value (LTV)</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Rank</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Customer</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Email</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Source</th>
+                <th scope="col" style={{ padding: "12px 16px" }}>Orders</th>
+                <th scope="col" style={{ padding: "12px 16px", textAlign: "right" }}>Lifetime spend</th>
               </tr>
             </thead>
             <tbody>
               {filteredCustomers.map((c, idx) => (
-                <tr key={c.customer_id + idx} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                <tr key={c.customer_id + idx} style={{ borderBottom: "1px solid var(--card-border)" }}>
                   <td style={{ padding: "12px 16px", fontWeight: 700, color: "var(--accent-violet)" }}>#{idx + 1}</td>
                   <td style={{ padding: "12px 16px", fontWeight: 600 }}>{c.name}</td>
                   <td style={{ padding: "12px 16px", color: "var(--text-secondary)" }}>{c.email}</td>

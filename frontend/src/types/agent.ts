@@ -31,6 +31,15 @@ export interface AgentQueryResponse {
   sql_results?: SQLResults | null;
   metrics_snapshot: MetricsSnapshot;
   suggested_followups: string[];
+  analysis_evidence?: AnalysisEvidence;
+}
+
+export interface AnalysisEvidence {
+  period: { label: string; start: string | null; end: string | null };
+  source_scope: string[];
+  source_scope_label: string;
+  sample: { completed_orders: number; order_attempts: number; customer_records: number; products_with_sales: number; stocked_products: number };
+  sufficiency: { level: "sufficient" | "limited" | "insufficient"; notes: string[] };
 }
 
 export interface StrategicRecommendation {
@@ -58,6 +67,7 @@ export interface RecommendationsResponse {
   key_risks: string[];
   quick_wins: string[];
   recommendations: StrategicRecommendation[];
+  analysis_evidence?: AnalysisEvidence;
 }
 
 export interface AnomalyDiagnosis {
@@ -73,6 +83,7 @@ export interface AnomalyDiagnosis {
   contributing_factors: string[];
   evidence: Record<string, any>;
   mitigation_actions: string[];
+  analysis_evidence?: AnalysisEvidence;
 }
 
 export interface PromptSuggestion {
@@ -106,4 +117,5 @@ export interface ChatMessage {
   sql_results?: SQLResults | null;
   metrics_snapshot?: MetricsSnapshot;
   suggested_followups?: string[];
+  analysis_evidence?: AnalysisEvidence;
 }

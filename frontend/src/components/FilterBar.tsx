@@ -54,9 +54,10 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <button
                 key={p.value}
                 onClick={() => onSelectDateRange(p.value)}
+                aria-pressed={isActive}
                 style={{
                   background: isActive ? "var(--accent-indigo)" : "var(--card-subtle-bg)",
-                  color: isActive ? "#ffffff" : "var(--text-secondary)",
+                  color: isActive ? "var(--accent-on-primary)" : "var(--text-secondary)",
                   border: isActive ? "1px solid var(--accent-indigo)" : "1px solid var(--card-border)",
                   borderRadius: "8px",
                   padding: "6px 12px",
@@ -79,6 +80,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <input
                 type="date"
                 className="date-input"
+                aria-label="Start date"
                 value={startDate}
                 onChange={(e) => onStartDateChange(e.target.value)}
               />
@@ -86,6 +88,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <input
                 type="date"
                 className="date-input"
+                aria-label="End date"
                 value={endDate}
                 onChange={(e) => onEndDateChange(e.target.value)}
               />
@@ -96,13 +99,14 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             <Filter size={16} color="var(--text-secondary)" />
             <select
               className="select-input"
+              aria-label="Filter by data source"
               value={sourceName}
               onChange={(e) => onSelectSourceName(e.target.value)}
             >
               <option value="">All Data Sources</option>
               {sources.map((s) => (
                 <option key={s.id} value={s.name}>
-                  {s.name} ({s.source_type})
+                  {s.display_name || s.name} ({s.source_type})
                 </option>
               ))}
             </select>
@@ -113,6 +117,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             onClick={onRefresh}
             disabled={isLoading}
             style={{ padding: "8px 12px" }}
+            aria-label={isLoading ? "Refreshing analytics" : "Refresh analytics"}
             title="Refresh Analytics"
           >
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />

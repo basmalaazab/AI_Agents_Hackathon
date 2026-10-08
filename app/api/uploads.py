@@ -6,11 +6,12 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.data_source import DataSource
+from app.api.auth import get_current_user, require_manager
+from app.models.data_source import DataSource, make_workspace_source_key
 from app.models.ingestion_run import IngestionRun
 from app.services.ingestion_service import IngestionService
 
-router = APIRouter(prefix="/upload", tags=["uploads"])
+router = APIRouter(prefix="/upload", tags=["uploads"], dependencies=[Depends(get_current_user)])
 
 ALLOWED_RECORD_TYPES = {"order", "customer", "product"}
 
@@ -37,6 +38,7 @@ class UploadResponse(BaseModel):
         "Specify `record_type` as one of: order, customer, product. "
         "If `source_name` is not registered, it is created automatically."
     ),
+    dependencies=[Depends(require_manager)],
 )
 async def upload_csv(
     file: UploadFile = File(..., description="CSV file to upload"),
@@ -66,9 +68,18 @@ async def upload_csv(
     # Get or create data source
     source = db.query(DataSource).filter_by(name=source_name).first()
     if source is None:
-        source = DataSource(name=source_name, source_type="csv")
-        db.add(source)
-        db.flush()
+        display_name = source_name.strip()[:120] or "csv_import"
+        internal_name = make_workspace_source_key(db.info["workspace_id"], display_name)
+        source = db.query(DataSource).filter_by(name=internal_name).first()
+        if source is None:
+            source = DataSource(
+                name=internal_name,
+                display_name=display_name,
+                source_type="csv",
+                workspace_id=db.info["workspace_id"],
+            )
+            db.add(source)
+            db.flush()
 
     svc = IngestionService(db)
     run: IngestionRun = svc.run_csv_ingestion(

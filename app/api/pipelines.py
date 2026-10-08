@@ -8,9 +8,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.auth import get_current_user, require_manager
 from app.services.pipeline_service import PipelineService
 
-router = APIRouter(prefix="/pipelines", tags=["pipelines"])
+router = APIRouter(prefix="/pipelines", tags=["pipelines"], dependencies=[Depends(get_current_user)])
 
 ALLOWED_RECORD_TYPES = {"order", "customer", "product"}
 
@@ -38,7 +39,7 @@ class RunResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.post("/trigger", response_model=RunResponse, summary="Trigger a pipeline run")
+@router.post("/trigger", response_model=RunResponse, summary="Trigger a pipeline run", dependencies=[Depends(require_manager)])
 def trigger_pipeline(payload: TriggerRequest, db: Session = Depends(get_db)):
     if payload.record_type not in ALLOWED_RECORD_TYPES:
         raise HTTPException(

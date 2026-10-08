@@ -7,10 +7,13 @@ import { RevenueTrendChart } from "./components/RevenueTrendChart";
 import { CategoryBreakdownChart } from "./components/CategoryBreakdownChart";
 import { TopPerformersTable } from "./components/TopPerformersTable";
 import { AlertsPanel } from "./components/AlertsPanel";
+import { InventoryRiskPanel } from "./components/InventoryRiskPanel";
 import { AIChatCopilotModal } from "./components/AIChatCopilotModal";
 import { AIBriefingPanel } from "./components/AIBriefingPanel";
 import { DataSourcesPanel } from "./components/DataSourcesPanel";
 import { ActivityPanel } from "./components/ActivityPanel";
+import { TeamPanel } from "./components/TeamPanel";
+import { AuthScreen } from "./components/AuthScreen";
 import {
   fetchOverviewKPIs,
   fetchRevenueTrends,
@@ -24,6 +27,7 @@ import {
   type DataSourceInfo,
   type PipelineSummary,
 } from "./services/api";
+import { authenticatedFetch, clearAuthToken, getAuthToken, getCurrentUser, logout, type AuthUser } from "./services/auth";
 import type {
   OverviewKPIs,
   RevenueTrendPoint,
@@ -34,7 +38,7 @@ import type {
 
 import { RefreshCw, WifiOff } from "lucide-react";
 
-export const App: React.FC = () => {
+const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user, onLogout }) => {
   // Theme state — light is the default for a professional SaaS look
   const [theme, setTheme] = useState<"dark" | "light">("light");
 
@@ -131,6 +135,14 @@ export const App: React.FC = () => {
   };
 
   const exportUrl = getExportCSVUrl(dateRange, sourceName, startDate, endDate);
+  const handleExport = async () => {
+    const response = await authenticatedFetch(exportUrl);
+    if (!response.ok) throw new Error("Could not export CSV data.");
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl; anchor.download = "clearview-analytics.csv"; anchor.click();
+    URL.revokeObjectURL(objectUrl);
+  };
   const apiOffline = !isLoading && error !== null;
 
   return (
@@ -143,7 +155,9 @@ export const App: React.FC = () => {
         theme={theme}
         onToggleTheme={toggleTheme}
         onOpenAIModal={handleOpenAIModal}
-        exportUrl={exportUrl}
+        onExport={handleExport}
+        user={user}
+        onLogout={onLogout}
         activeSection={activeSection}
         onSectionChange={setActiveSection}
       />
@@ -154,7 +168,7 @@ export const App: React.FC = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <WifiOff size={18} className="error-icon" aria-hidden="true" />
             <div>
-              <strong>Backend not reachable.</strong>{" "}
+              <strong>Can’t reach the backend.</strong>{" "}
               <span style={{ color: "var(--text-secondary)" }}>{error}</span>
             </div>
           </div>
@@ -195,9 +209,15 @@ export const App: React.FC = () => {
             isLoading={isLoading}
             sources={dataSources}
           />
+          <p className="currency-note" role="note">
+            {aiContextData?.currency_notice?.unconverted_orders_excluded > 0
+              ? `${aiContextData.currency_notice.unconverted_orders_excluded} non-USD orders are excluded from revenue totals because exchange-rate conversion is not configured.`
+              : "Revenue totals are shown in USD. No exchange-rate conversion is applied to other currencies."}
+          </p>
 
           {/* Business Alerts */}
           <AlertsPanel alerts={alerts} isLoading={isLoading} apiOffline={apiOffline} />
+          <InventoryRiskPanel inventory={aiContextData?.inventory_risk} isLoading={isLoading} />
 
           {/* KPI Cards */}
           <KPICards data={overview} isLoading={isLoading} />
@@ -243,6 +263,9 @@ export const App: React.FC = () => {
             isLoading={isLoading}
             sources={dataSources}
           />
+          <p className="currency-note" role="note">
+            Currency conversion is not applied. Filter to one source if your data uses different currencies.
+          </p>
 
           {/* Prompt to open the full modal */}
           <div
@@ -250,18 +273,17 @@ export const App: React.FC = () => {
             style={{ padding: "32px", textAlign: "center" }}
           >
             <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "8px" }}>
-              Explore Deep Analytical Reasoning &amp; Diagnostics
+              Explore your business data
             </h3>
             <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", marginBottom: "20px", maxWidth: "560px", margin: "0 auto 20px" }}>
-              Open the full AI Business Analyst console for Strategic Action Plans, Anomaly Root-Cause Analysis,
-              and Safe Read-Only SQL Inspection.
+              Review recommendations, investigate unusual changes, or ask focused questions about your business data.
             </p>
             <button
               className="btn btn-primary"
               onClick={handleOpenAIModal}
-              style={{ fontSize: "0.9rem", padding: "10px 24px", background: "var(--accent-indigo)", color: "#ffffff" }}
+              style={{ fontSize: "0.9rem", padding: "10px 24px", background: "var(--accent-indigo)", color: "var(--accent-on-primary)" }}
             >
-              Launch Full AI Analyst
+              Open AI Analyst
             </button>
           </div>
         </section>
@@ -273,8 +295,11 @@ export const App: React.FC = () => {
           sources={dataSources}
           summary={pipelineSummary}
           onSourcesChanged={handleIngestComplete}
+          readOnly={user.role === "viewer"}
         />
       )}
+
+      {activeSection === "team" && <TeamPanel user={user} />}
 
       {/* ── ACTIVITY SECTION ─────────────────────────────────── */}
       {activeSection === "activity" && (
@@ -291,6 +316,19 @@ export const App: React.FC = () => {
       />
     </div>
   );
+};
+
+export const App: React.FC = () => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [checkingSession, setCheckingSession] = useState(Boolean(getAuthToken()));
+  useEffect(() => {
+    if (!getAuthToken()) return;
+    getCurrentUser().then(setUser).catch(() => clearAuthToken()).finally(() => setCheckingSession(false));
+  }, []);
+  const handleLogout = async () => { await logout(); setUser(null); };
+  if (checkingSession) return <main style={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>Loading your workspace…</main>;
+  if (!user) return <AuthScreen onAuthenticated={setUser} />;
+  return <DashboardApp user={user} onLogout={handleLogout} />;
 };
 
 export default App;

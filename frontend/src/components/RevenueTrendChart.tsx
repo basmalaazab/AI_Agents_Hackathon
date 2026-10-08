@@ -44,6 +44,14 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
   const labels = data.map((d) => d.date);
   const isRevenue = activeTab === "revenue";
   const datasetValues = data.map((d) => (isRevenue ? d.revenue : d.orders));
+  const styles = getComputedStyle(document.documentElement);
+  const color = (token: string) => styles.getPropertyValue(token).trim();
+  const primary = color("--chart-primary");
+  const secondary = color("--chart-secondary");
+  const primarySoft = color("--chart-primary-soft");
+  const secondarySoft = color("--chart-secondary-soft");
+  const gridColor = color("--chart-grid");
+  const textMuted = color("--text-muted");
 
   const chartData = {
     labels,
@@ -52,15 +60,15 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
         fill: true,
         label: isRevenue ? "Revenue" : "Completed Orders",
         data: datasetValues,
-        borderColor: isRevenue ? "#6366f1" : "#14b8a6",
+        borderColor: isRevenue ? primary : secondary,
         backgroundColor: isRevenue
-          ? "rgba(99, 102, 241, 0.15)"
-          : "rgba(20, 184, 166, 0.15)",
+          ? primarySoft
+          : secondarySoft,
         tension: 0.35,
         borderWidth: 2.5,
         pointRadius: data.length < 35 ? 3 : 0,
         pointHoverRadius: 6,
-        pointBackgroundColor: isRevenue ? "#8b5cf6" : "#10b981",
+        pointBackgroundColor: isRevenue ? primary : secondary,
       },
     ],
   };
@@ -73,17 +81,17 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
         display: false,
       },
       tooltip: {
-        backgroundColor: "rgba(15, 23, 42, 0.9)",
-        titleColor: "#f8fafc",
-        bodyColor: "#cbd5e1",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: color("--chart-tooltip-bg"),
+        titleColor: color("--chart-tooltip-text"),
+        bodyColor: color("--chart-tooltip-text"),
+        borderColor: color("--card-border"),
         borderWidth: 1,
         padding: 12,
         boxPadding: 6,
         callbacks: {
           label: (context: any) => {
             const val = context.raw;
-            return isRevenue ? ` Revenue: ${val.toLocaleString()}` : ` Orders: ${val}`;
+            return isRevenue ? ` Revenue amount: ${val.toLocaleString()}` : ` Orders: ${val}`;
           },
         },
       },
@@ -91,22 +99,22 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
     scales: {
       x: {
         grid: {
-          color: "rgba(148, 163, 184, 0.1)",
+          color: gridColor,
         },
         ticks: {
-          color: "var(--text-muted)",
+          color: textMuted,
           font: { size: 11 },
           maxRotation: 45,
         },
       },
       y: {
         grid: {
-          color: "rgba(148, 163, 184, 0.12)",
+          color: gridColor,
         },
         ticks: {
-          color: "var(--text-muted)",
+          color: textMuted,
           font: { size: 11 },
-          callback: (value: any) => (isRevenue ? value.toLocaleString() : value),
+          callback: (value: any) => (isRevenue ? Number(value).toLocaleString() : value),
         },
       },
     },
@@ -118,7 +126,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
         <div>
           <h3 style={{ fontSize: "1.1rem", fontWeight: 700 }}>Performance Trends Over Time</h3>
           <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-            Daily revenue and order volume trajectory
+            Daily revenue and order volume for the selected period
           </p>
         </div>
 
@@ -130,13 +138,13 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
               borderRadius: "8px",
               border: "none",
               background: isRevenue ? "var(--accent-indigo)" : "transparent",
-              color: isRevenue ? "#fff" : "var(--text-secondary)",
+              color: isRevenue ? "var(--accent-on-primary)" : "var(--text-secondary)",
               fontWeight: 600,
               fontSize: "0.8rem",
               cursor: "pointer",
             }}
           >
-            Revenue ($)
+            Revenue amount
           </button>
           <button
             onClick={() => setActiveTab("orders")}
@@ -145,7 +153,7 @@ export const RevenueTrendChart: React.FC<RevenueTrendChartProps> = ({ data, isLo
               borderRadius: "8px",
               border: "none",
               background: !isRevenue ? "var(--accent-teal)" : "transparent",
-              color: !isRevenue ? "#fff" : "var(--text-secondary)",
+              color: !isRevenue ? "var(--accent-on-primary)" : "var(--text-secondary)",
               fontWeight: 600,
               fontSize: "0.8rem",
               cursor: "pointer",

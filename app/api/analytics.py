@@ -10,9 +10,10 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.api.auth import get_current_user
 from app.services.analytics_service import AnalyticsService
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(get_current_user)])
 
 
 @router.get("/overview", summary="Executive KPI summary & period-over-period comparison")
@@ -73,6 +74,14 @@ def get_business_alerts(
 ):
     svc = AnalyticsService(db)
     return svc.get_business_alerts(date_range, source_name, start_date, end_date)
+
+
+@router.get("/inventory-risk", summary="Stock risk based on imported on-hand quantities and recent sales")
+def get_inventory_risk(
+    source_name: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return AnalyticsService(db).get_inventory_risk(source_name)
 
 
 @router.get("/ai-context", summary="Structured analytics payload formatted for Person 3 AI Agent")

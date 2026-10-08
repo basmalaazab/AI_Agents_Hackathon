@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# Clearview BI web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The frontend is a React and TypeScript single-page application built with Vite. It displays business analytics and calls the FastAPI backend; it does not connect to third-party business platforms directly.
 
-Currently, two official plugins are available:
+## Start the development server
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+From this directory:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Open [http://localhost:5173](http://localhost:5173). The Vite server proxies `/api` requests to `http://localhost:8000` by default. Start the backend separately; see the repository [Quick Start](../README.md#run-locally).
+
+To use a different backend, set `VITE_PROXY_TARGET` before starting Vite.
+
+## Available checks
+
+```bash
+npm run lint
+npm run build
+```
+
+The build runs TypeScript project checks and creates static files in `dist/`.
+
+## Main interface areas
+
+- **Overview:** date/source filters, AI question box, business and low-stock alerts, KPI cards, charts, stock cover estimates, and top products/customers.
+- **AI Analyst:** entry to the conversational analyst, recommendations, diagnostics, and read-only SQL results.
+- **Data Sources:** CSV import, source registration, and pipeline status.
+- **Activity:** placeholder until an activity-feed API is implemented.
+
+Colors and typography are defined in `src/index.css`; chart colors should use the same design tokens. Product CSVs can provide `stock_quantity` and `reorder_point`. Stock cover is an estimate from the last 30 days and excludes supplier lead time. Non-USD orders are excluded from USD revenue totals because no conversion is performed.

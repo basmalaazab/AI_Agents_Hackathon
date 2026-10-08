@@ -178,12 +178,72 @@ class TestAIAgentService:
         assert resp["metrics_snapshot"]["revenue"] == 150.0
         assert len(resp["suggested_followups"]) > 0
 
+    def test_process_query_revenue_drop_routes_to_diagnosis(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("Why did revenue drop?")
+        assert resp["intent"] == "anomaly_diagnosis"
+
+    def test_arabic_revenue_drop_routes_to_diagnosis(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("ليه الإيرادات قلت؟")
+        assert resp["intent"] == "anomaly_diagnosis"
+
+    def test_profit_query_explains_missing_cost_data(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("How much profit did we make?")
+        assert resp["intent"] == "unsupported_profit_analysis"
+        assert "product costs" in resp["answer"]
+
+    def test_unrecognized_query_is_not_answered_with_unrelated_metrics(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("What is the weather today?")
+        assert resp["intent"] == "general_query"
+        assert "couldn't match" in resp["answer"]
+
     def test_process_query_products(self, agent_session):
         svc = AIAgentService(agent_session)
         resp = svc.process_query("Which products are top sellers?")
         assert resp["intent"] == "product_analysis"
         assert "Wireless Mouse" in resp["answer"]
         assert len(resp["suggested_followups"]) > 0
+
+    def test_stockout_risk_question_does_not_route_to_product_analysis(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("Is our top product at risk of running out of stock?")
+        assert resp["intent"] == "inventory_risk"
+        assert "Wireless Mouse" in resp["answer"]
+        assert "stock_quantity" in resp["answer"]
+
+    def test_arabic_stockout_risk_question_explains_missing_inventory_data(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("هل المنتج الأعلى مبيعًا معرض لنفاد المخزون؟")
+        assert resp["intent"] == "inventory_risk"
+        assert "كميات مخزون" in resp["answer"]
+
+    def test_arabic_product_revenue_query_routes_to_products(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("ما المنتجات الأعلى في الإيرادات؟")
+        assert resp["intent"] == "product_analysis"
+        assert "Wireless Mouse" in resp["answer"]
+
+    def test_arabic_profit_recommendation_routes_to_recommendations(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("ما هي التوصيات لزيادة الأرباح؟")
+        assert resp["intent"] == "recommendations"
+        assert "بيانات التكاليف والمصروفات غير متاحة" in resp["answer"]
+        assert "أولوية" in resp["answer"]
+
+    def test_winback_question_respects_available_audience(self, agent_session):
+        svc = AIAgentService(agent_session)
+        resp = svc.process_query("How do we run the win-back campaign?")
+        assert resp["intent"] == "winback_campaign"
+        assert "no customers are currently flagged" in resp["answer"].lower()
+
+    def test_recommendations_do_not_assume_inventory_data(self, agent_session):
+        svc = AIAgentService(agent_session)
+        recommendations = svc.generate_recommendations()["recommendations"]
+        assert all(rec["id"] != "rec_inventory_scale" for rec in recommendations)
+        assert all("up to $" not in rec["expected_impact"] for rec in recommendations)
 
     def test_process_query_customer_retention(self, agent_session):
         svc = AIAgentService(agent_session)
@@ -199,6 +259,7 @@ class TestAIAgentService:
         assert len(recs["recommendations"]) > 0
         assert "action_steps" in recs["recommendations"][0]
         assert "priority" in recs["recommendations"][0]
+        assert "1 recommendation is marked high priority" in recs["executive_summary"]
 
     def test_diagnose_anomalies(self, agent_session):
         svc = AIAgentService(agent_session)

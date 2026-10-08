@@ -31,6 +31,7 @@ import type {
   AnomalyDiagnosis,
   SQLResults,
   PromptSuggestion,
+  AnalysisEvidence,
 } from "../types/agent";
 import { MarkdownContent } from "./MarkdownContent";
 
@@ -41,6 +42,25 @@ interface AIChatCopilotModalProps {
   dateRange: string;
   sourceName?: string;
 }
+
+const modelLabel = (model?: string) => {
+  if (model === "gpt-4o-mini") return "OpenAI GPT-4o mini";
+  if (model === "gemini-3.8-flash") return "Gemini 3.8 Flash";
+  if (model === "built-in-analyst") return "Built-in analyst";
+  return model?.replaceAll("_", " ") ?? "";
+};
+
+const evidenceDate = (value: string | null) => value ? new Date(value).toLocaleDateString() : null;
+
+const EvidenceCard: React.FC<{ evidence: AnalysisEvidence }> = ({ evidence }) => <div className={`ai-evidence ${evidence.sufficiency.level}`}>
+  <div className="ai-evidence-heading"><ShieldCheck size={13} /><strong>Analysis based on your data</strong><span>{evidence.sufficiency.level === "sufficient" ? "Data available" : evidence.sufficiency.level === "limited" ? "Limited sample" : "Not enough data"}</span></div>
+  <div className="ai-evidence-facts">
+    <span><b>Period</b> {evidence.period.label}{evidence.period.start ? ` · ${evidenceDate(evidence.period.start)}–${evidenceDate(evidence.period.end)}` : ""}</span>
+    <span><b>Sources</b> {evidence.source_scope_label}{evidence.source_scope_label === "All company sources" && evidence.source_scope.length ? `: ${evidence.source_scope.join(", ")}` : ""}</span>
+    <span><b>Records</b> {evidence.sample.completed_orders} completed orders · {evidence.sample.customer_records} customers</span>
+  </div>
+  {evidence.sufficiency.notes.map((note, index) => <p key={index}>{note}</p>)}
+</div>;
 
 export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
   isOpen,
@@ -61,10 +81,12 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
   // Recommendations State
   const [recommendations, setRecommendations] = useState<StrategicRecommendation[]>([]);
   const [execSummary, setExecSummary] = useState<string>("");
+  const [recommendationEvidence, setRecommendationEvidence] = useState<AnalysisEvidence | null>(null);
   const [isLoadingRecs, setIsLoadingRecs] = useState(false);
 
   // Diagnoses State
   const [diagnoses, setDiagnoses] = useState<AnomalyDiagnosis[]>([]);
+  const [diagnosisEvidence, setDiagnosisEvidence] = useState<AnalysisEvidence | null>(null);
   const [isLoadingDiag, setIsLoadingDiag] = useState(false);
 
   // SQL Runner State
@@ -84,11 +106,13 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
       if (messages.length === 0) {
         const rev = aiData?.headline_kpis?.revenue?.current || 0;
         const ords = aiData?.headline_kpis?.orders?.current || 0;
+        const availableSources = aiData?.sales_performance?.revenue_by_platform?.map((item: { platform: string }) => item.platform) ?? [];
+        const sourceScope = sourceName || (availableSources.length ? availableSources.join(", ") : "All company sources");
         setMessages([
           {
             id: "welcome-msg",
             role: "assistant",
-            content: `Hello! I'm your AI Business Analyst.\n\nI have access to your business data for the **${dateRange}** period.\n\n- **Revenue:** ${typeof rev === "number" ? rev.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "Not available"}\n- **Orders:** ${typeof ords === "number" ? ords.toLocaleString() : "Not available"}\n\nAsk me about your sales performance, customers, or products. I'll explain what the data shows and why it matters.`,
+            content: `Hello! I'm your AI Business Analyst.\n\nI can answer questions using your imported business data.\n\n- **Period:** ${dateRange}\n- **Sources:** ${sourceScope}\n- **Revenue (USD):** ${typeof rev === "number" ? rev.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "Not available"}\n- **Orders:** ${typeof ords === "number" ? ords.toLocaleString() : "Not available"}\n\nAsk about sales, customers, products, or trends. Orders in other currencies are excluded from revenue because exchange-rate conversion is not configured.`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             suggested_followups: [
               "What is our total revenue and sales trend?",
@@ -116,28 +140,33 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
   // Load recommendations when tab is opened
   useEffect(() => {
-    if (isOpen && activeTab === "recommendations" && recommendations.length === 0) {
+    if (isOpen && activeTab === "recommendations") {
       setIsLoadingRecs(true);
+      setRecommendations([]);
+      setRecommendationEvidence(null);
       fetchRecommendations(dateRange, sourceName)
         .then((res) => {
           setRecommendations(res.recommendations);
           setExecSummary(res.executive_summary);
+          setRecommendationEvidence(res.analysis_evidence ?? null);
         })
         .catch((err) => console.error("Recs load error", err))
         .finally(() => setIsLoadingRecs(false));
     }
-  }, [isOpen, activeTab, dateRange, sourceName, recommendations.length]);
+  }, [isOpen, activeTab, dateRange, sourceName]);
 
   // Load diagnoses when tab is opened
   useEffect(() => {
-    if (isOpen && activeTab === "diagnose" && diagnoses.length === 0) {
+    if (isOpen && activeTab === "diagnose") {
       setIsLoadingDiag(true);
+      setDiagnoses([]);
+      setDiagnosisEvidence(null);
       fetchDiagnoses(dateRange, sourceName)
-        .then(setDiagnoses)
+        .then(items => { setDiagnoses(items); setDiagnosisEvidence(items[0]?.analysis_evidence ?? null); })
         .catch((err) => console.error("Diag load error", err))
         .finally(() => setIsLoadingDiag(false));
     }
-  }, [isOpen, activeTab, dateRange, sourceName, diagnoses.length]);
+  }, [isOpen, activeTab, dateRange, sourceName]);
 
   if (!isOpen) return null;
 
@@ -172,6 +201,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         sql_results: res.sql_results,
         metrics_snapshot: res.metrics_snapshot,
         suggested_followups: res.suggested_followups,
+        analysis_evidence: res.analysis_evidence,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -213,6 +243,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
   return (
     <div
+      role="presentation"
       style={{
         position: "fixed",
         top: 0,
@@ -229,6 +260,9 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="AI Business Analyst"
         className="glass-card animate-fade-in"
         style={{
           width: "100%",
@@ -259,11 +293,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                 width: "40px",
                 height: "40px",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                background: "linear-gradient(135deg, var(--accent-indigo), var(--accent-emerald))",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 16px rgba(99, 102, 241, 0.4)",
+                boxShadow: "0 0 14px rgba(36, 107, 77, 0.2)",
               }}
             >
               <Bot size={22} color="#fff" />
@@ -278,25 +312,26 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     fontSize: "0.7rem",
                     padding: "2px 8px",
                     borderRadius: "10px",
-                    background: "rgba(16, 185, 129, 0.2)",
-                    color: "#10b981",
+                    background: "var(--badge-green-bg)",
+                    color: "var(--badge-green-text)",
                     fontWeight: 600,
                     display: "flex",
                     alignItems: "center",
                     gap: "4px",
                   }}
                 >
-                  <ShieldCheck size={12} /> Safe Read-Only
+                  <ShieldCheck size={12} /> Read-only analysis
                 </span>
               </div>
               <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "2px 0 0" }}>
-                Autonomous reasoning, root-cause anomaly diagnosis & actionable recommendations
+                Ask questions, review trends, and explore recommendations based on your data.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
+            aria-label="Close AI Business Analyst"
             style={{
               background: "transparent",
               border: "none",
@@ -337,7 +372,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             }}
           >
             <Sparkles size={16} color={activeTab === "chat" ? "var(--accent-indigo)" : "currentColor"} />
-            AI Copilot Chat
+            AI Analyst Chat
           </button>
 
           <button
@@ -356,8 +391,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               gap: "8px",
             }}
           >
-            <Lightbulb size={16} color={activeTab === "recommendations" ? "#f59e0b" : "currentColor"} />
-            Strategic Action Plan
+            <Lightbulb size={16} color={activeTab === "recommendations" ? "var(--accent-amber)" : "currentColor"} />
+            Recommendations
           </button>
 
           <button
@@ -376,7 +411,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               gap: "8px",
             }}
           >
-            <AlertTriangle size={16} color={activeTab === "diagnose" ? "#f43f5e" : "currentColor"} />
+            <AlertTriangle size={16} color={activeTab === "diagnose" ? "var(--accent-rose)" : "currentColor"} />
             Anomaly Diagnosis
           </button>
 
@@ -396,8 +431,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               gap: "8px",
             }}
           >
-            <Database size={16} color={activeTab === "sql" ? "#0284c7" : "currentColor"} />
-            Safe SQL Runner
+            <Database size={16} color={activeTab === "sql" ? "var(--accent-teal)" : "currentColor"} />
+            SQL access
           </button>
 
           <button
@@ -422,7 +457,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
           </button>
         </div>
 
-        {/* Tab 1: AI Copilot Chat */}
+        {/* Tab 1: AI Analyst Chat */}
         {activeTab === "chat" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Quick Prompt Suggestions */}
@@ -481,7 +516,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                         maxWidth: "85%",
                         padding: "14px 18px",
                         borderRadius: isAssistant ? "18px 18px 18px 4px" : "18px 18px 4px 18px",
-                        background: isAssistant ? "var(--chat-assistant-bg)" : "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                        background: isAssistant ? "var(--chat-assistant-bg)" : "linear-gradient(135deg, var(--accent-indigo), var(--accent-emerald))",
                         border: isAssistant ? "1px solid var(--chat-assistant-border)" : "none",
                         color: isAssistant ? "var(--chat-assistant-text)" : "#ffffff",
                         fontSize: "0.88rem",
@@ -514,7 +549,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                             }}
                           >
                             <Database size={13} />
-                            {expandedSqlMsgId === m.id ? "Hide Safe SQL Query" : "View Executed Read-Only SQL"}
+                            {expandedSqlMsgId === m.id ? "Hide Generated Query" : "View Generated Query (not executed)"}
                             {expandedSqlMsgId === m.id ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                           </button>
 
@@ -536,6 +571,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {isAssistant && m.analysis_evidence && <EvidenceCard evidence={m.analysis_evidence} />}
 
                     {/* Followup suggestions */}
                     {isAssistant && m.suggested_followups && m.suggested_followups.length > 0 && (
@@ -561,7 +598,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     )}
 
                     <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                      {m.timestamp} {m.model_used && `• ${m.model_used}`}
+                      {m.timestamp} {m.model_used && `• ${modelLabel(m.model_used)}`}
                     </span>
                   </div>
                 );
@@ -591,7 +628,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                placeholder="Ask anything about sales, products, anomalies, churn, or safe SQL..."
+                placeholder="Ask about sales, products, customers, or trends…"
                 disabled={isSending}
                 style={{
                   flex: 1,
@@ -627,13 +664,14 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
               </div>
             ) : (
               <>
+                {recommendationEvidence && <EvidenceCard evidence={recommendationEvidence} />}
                 {execSummary && (
                   <div
                     style={{
                       padding: "16px 20px",
                       borderRadius: "14px",
-                      background: "rgba(99, 102, 241, 0.12)",
-                      border: "1px solid rgba(99, 102, 241, 0.3)",
+                      background: "var(--pill-bg)",
+                      border: "1px solid var(--pill-border)",
                       fontSize: "0.9rem",
                       color: "var(--text-primary)",
                       lineHeight: 1.6,
@@ -664,15 +702,15 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                             fontWeight: 700,
                             background:
                               rec.priority === "HIGH"
-                                ? "rgba(244, 63, 94, 0.15)"
+                                ? "var(--badge-red-bg)"
                                 : rec.priority === "MEDIUM"
-                                ? "rgba(251, 191, 36, 0.15)"
-                                : "rgba(148, 163, 184, 0.15)",
+                                ? "var(--badge-amber-bg)"
+                                : "var(--pill-bg)",
                             color:
                               rec.priority === "HIGH"
-                                ? "#e11d48"
+                                ? "var(--badge-red-text)"
                                 : rec.priority === "MEDIUM"
-                                ? "#d97706"
+                                ? "var(--badge-amber-text)"
                                 : "var(--text-secondary)",
                           }}
                         >
@@ -682,7 +720,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
                       <div style={{ display: "flex", gap: "16px", fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
                         <span>📁 Category: <strong>{rec.category}</strong></span>
-                        <span>⚡ Impact: <strong style={{ color: "#10b981" }}>{rec.expected_impact}</strong></span>
+                        <span>⚡ Impact: <strong style={{ color: "var(--accent-emerald)" }}>{rec.expected_impact}</strong></span>
                         <span>⏱️ Effort: <strong>{rec.implementation_effort}</strong></span>
                       </div>
 
@@ -711,16 +749,17 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         {/* Tab 3: Anomaly Diagnosis */}
         {activeTab === "diagnose" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {diagnosisEvidence && <EvidenceCard evidence={diagnosisEvidence} />}
             {isLoadingDiag ? (
               <div style={{ textAlign: "center", padding: "40px", color: "var(--text-secondary)" }}>
                 <RefreshCw size={24} className="animate-spin" style={{ margin: "0 auto 12px" }} />
                 <p>Investigating root causes of operational alerts...</p>
               </div>
             ) : diagnoses.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px", color: "#10b981" }}>
+              <div style={{ textAlign: "center", padding: "40px", color: "var(--accent-emerald)" }}>
                 <CheckCircle2 size={36} style={{ margin: "0 auto 12px" }} />
-                <h3>All Business Metrics Stable</h3>
-                <p style={{ color: "var(--text-secondary)" }}>No severe anomalies or drops detected for this period.</p>
+                <h3>No major anomalies found</h3>
+                <p style={{ color: "var(--text-secondary)" }}>No major anomalies were detected for this period.</p>
               </div>
             ) : (
               diagnoses.map((diag) => (
@@ -730,11 +769,11 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     padding: "20px",
                     borderRadius: "16px",
                     background: "var(--card-subtle-bg)",
-                    border: diag.severity === "danger" ? "1px solid rgba(244, 63, 94, 0.4)" : "1px solid rgba(251, 191, 36, 0.4)",
+                    border: diag.severity === "danger" ? "1px solid var(--accent-border-danger)" : "1px solid var(--accent-border-warning)",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                    <AlertTriangle size={20} color={diag.severity === "danger" ? "#f43f5e" : "#fbbf24"} />
+                    <AlertTriangle size={20} color={diag.severity === "danger" ? "var(--accent-rose)" : "var(--accent-amber)"} />
                     <h4 style={{ fontSize: "1.05rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>{diag.title}</h4>
                   </div>
 
@@ -742,8 +781,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "14px" }}>
                     <div style={{ background: "var(--modal-tab-bar)", padding: "12px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#e11d48", marginBottom: "4px" }}>
-                        Root Causes Identified:
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--accent-rose)", marginBottom: "4px" }}>
+                        Possible causes:
                       </div>
                       <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                         {diag.root_causes.map((rc, rIdx) => (
@@ -753,8 +792,8 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                     </div>
 
                     <div style={{ background: "var(--modal-tab-bar)", padding: "12px", borderRadius: "10px", border: "1px solid var(--card-border)" }}>
-                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#10b981", marginBottom: "4px" }}>
-                        Recommended Mitigation Steps:
+                      <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--accent-emerald)", marginBottom: "4px" }}>
+                        Suggested next steps:
                       </div>
                       <ul style={{ margin: 0, paddingLeft: "16px", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
                         {diag.mitigation_actions.map((act, aIdx) => (
@@ -772,14 +811,16 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         {/* Tab 4: Safe SQL Sandbox */}
         {activeTab === "sql" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-              🔒 <strong>Safe Read-Only SQL Console:</strong> You can query clean business tables (<code>orders</code>, <code>order_items</code>, <code>customers</code>, <code>products</code>). Mutation and DDL queries are automatically blocked by the safety guardrail.
+            <div style={{ padding: 20, borderRadius: 12, background: "var(--chat-assistant-bg)", color: "var(--text-secondary)" }}>
+              <strong style={{ color: "var(--text-primary)" }}>Direct SQL is currently unavailable.</strong>
+              <p style={{ marginBottom: 0 }}>Company data is isolated by workspace. Use the dashboard and AI Analyst for workspace-scoped business questions.</p>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <textarea
                 value={sqlQuery}
                 onChange={(e) => setSqlQuery(e.target.value)}
+                disabled
                 rows={4}
                 style={{
                   width: "100%",
@@ -797,7 +838,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
                 <button
                   className="btn btn-primary"
                   onClick={handleRunSQL}
-                  disabled={isRunningSql || !sqlQuery.trim()}
+                  disabled
                   style={{ fontSize: "0.85rem", padding: "6px 16px" }}
                 >
                   <Play size={14} />
@@ -807,7 +848,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             </div>
 
             {sqlError && (
-              <div style={{ padding: "12px", borderRadius: "10px", background: "rgba(244, 63, 94, 0.15)", border: "1px solid rgba(244, 63, 94, 0.4)", color: "#e11d48", fontSize: "0.85rem" }}>
+              <div style={{ padding: "12px", borderRadius: "10px", background: "var(--badge-red-bg)", border: "1px solid var(--accent-border-danger)", color: "var(--badge-red-text)", fontSize: "0.85rem" }}>
                 ⚠️ {sqlError}
               </div>
             )}
@@ -885,7 +926,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
         {/* Footer */}
         <div style={{ padding: "14px 24px", borderTop: "1px solid var(--card-border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--modal-sub-header)" }}>
           <span style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            AI Analyst · Safe read-only SQL · Analytical reasoning engine
+            AI Analyst · Business insights from your company workspace
           </span>
           <button className="btn btn-primary" onClick={onClose} style={{ fontSize: "0.85rem" }}>
             Close

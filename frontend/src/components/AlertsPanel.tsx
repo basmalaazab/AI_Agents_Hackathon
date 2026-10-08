@@ -23,14 +23,14 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, api
           display: "flex",
           alignItems: "center",
           gap: "10px",
-          borderColor: "rgba(244, 63, 94, 0.3)",
+          borderColor: "var(--accent-border-danger)",
         }}
         role="status"
         aria-live="polite"
       >
         <WifiOff size={18} color="var(--accent-rose)" aria-hidden="true" />
         <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-          Analytics service is not reachable. Business alerts cannot be loaded.
+          The analytics service is unavailable, so alerts could not be loaded.
         </span>
       </div>
     );
@@ -46,7 +46,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, api
       >
         <CheckCircle2 size={18} color="var(--accent-emerald)" aria-hidden="true" />
         <span style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
-          No alerts detected for the selected period. Business metrics are within expected ranges.
+          No alerts were generated for the selected period.
         </span>
       </div>
     );
@@ -67,10 +67,10 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, api
 
   const getSeverityBorder = (severity: string) => {
     switch (severity) {
-      case "danger":  return "1px solid rgba(244, 63, 94, 0.35)";
-      case "warning": return "1px solid rgba(245, 158, 11, 0.35)";
-      case "success": return "1px solid rgba(16, 185, 129, 0.35)";
-      default:        return "1px solid rgba(99, 102, 241, 0.35)";
+      case "danger":  return "1px solid var(--accent-border-danger)";
+      case "warning": return "1px solid var(--accent-border-warning)";
+      case "success": return "1px solid var(--accent-border-success)";
+      default:        return "1px solid var(--accent-border-info)";
     }
   };
 
@@ -93,15 +93,15 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, api
         }}
       >
         <AlertTriangle size={16} color="var(--accent-amber)" aria-hidden="true" />
-        Business Alerts
+        Alerts
         <span
           style={{
             marginLeft: "auto",
             fontSize: "0.72rem",
             padding: "2px 8px",
             borderRadius: "10px",
-            background: "rgba(244, 63, 94, 0.12)",
-            color: "var(--accent-rose)",
+            background: "var(--badge-red-bg)",
+            color: "var(--badge-red-text)",
             fontWeight: 600,
           }}
         >
@@ -136,7 +136,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, isLoading, api
               </p>
               {(a.change_pct !== undefined || a.value !== undefined) && (
                 <p style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "4px" }}>
-                  {a.metric && <>Metric: <strong>{a.metric}</strong></>}
+                  {a.metric && <>Metric: <strong>{a.metric.replaceAll("_", " ")}</strong></>}
                   {a.change_pct !== undefined && <> · Change: <strong>{a.change_pct > 0 ? "+" : ""}{a.change_pct}%</strong></>}
                 </p>
               )}

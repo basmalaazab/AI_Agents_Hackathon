@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health, sources, uploads, pipelines, data, analytics, agent, auth
 from app.config import get_settings
-from app.database import Base, engine
+from app.database import Base, engine, ensure_product_inventory_columns, ensure_workspace_columns
 from app.models import (  # noqa: F401 — register models before create_all
     Customer,
     DataQualityError,
@@ -48,6 +48,8 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Starting AI Business Intelligence Agent — Data Engineering Layer")
     Base.metadata.create_all(bind=engine)
+    ensure_workspace_columns()
+    ensure_product_inventory_columns()
     start_scheduler()
     yield
     stop_scheduler()

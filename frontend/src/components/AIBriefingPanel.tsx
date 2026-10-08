@@ -98,7 +98,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           <div>
             <h2 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>AI Business Analyst</h2>
             <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", margin: "2px 0 0" }}>
-              Ask anything about your sales, customers, and performance.
+              Ask about sales, customers, products, or trends in the data you have imported.
             </p>
           </div>
         </div>
@@ -132,8 +132,8 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           }}
         >
           <span>
-            <span style={{ color: "var(--text-muted)" }}>Period revenue: </span>
-            <strong>{typeof rev === "number" ? rev.toLocaleString("en-US", { style: "currency", currency: "USD" }) : "–"}</strong>
+            <span style={{ color: "var(--text-muted)" }}>Revenue (USD): </span>
+            <strong>{typeof rev === "number" ? rev.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "–"}</strong>
           </span>
           <span>
             <span style={{ color: "var(--text-muted)" }}>Orders: </span>
@@ -155,7 +155,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
             gap: "8px",
             padding: "10px 14px",
             borderRadius: "10px",
-            background: "rgba(148,163,184,0.08)",
+            background: "var(--card-subtle-bg)",
             border: "1px solid var(--card-border)",
             fontSize: "0.83rem",
             color: "var(--text-secondary)",
@@ -186,7 +186,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           onClick={() => handleAsk()}
           disabled={isSending || !question.trim() || apiOffline}
           aria-label="Send question to AI Analyst"
-          style={{ flexShrink: 0, background: "var(--accent-indigo)", color: "#ffffff", border: "none" }}
+          style={{ flexShrink: 0, background: "var(--accent-indigo)", color: "var(--accent-on-primary)", border: "none" }}
         >
           {isSending ? <RefreshCw size={16} className="animate-spin" aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}
           {isSending ? "Analyzing…" : "Ask"}
@@ -221,8 +221,8 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
             gap: "8px",
             padding: "12px 16px",
             borderRadius: "10px",
-            background: "rgba(244, 63, 94, 0.07)",
-            border: "1px solid rgba(244, 63, 94, 0.2)",
+            background: "var(--badge-red-bg)",
+            border: "1px solid var(--accent-border-danger)",
             fontSize: "0.85rem",
             color: "var(--text-primary)",
           }}
@@ -256,7 +256,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           <div style={{ marginTop: "10px", paddingTop: "8px", borderTop: "1px solid var(--card-border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
             <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>
               {answer.timestamp}
-              {answer.intent ? ` · Query type: ${answer.intent}` : ""}
+              {answer.intent ? ` · ${answer.intent.replaceAll("_", " ")}` : ""}
             </span>
             <button
               className="btn btn-secondary"

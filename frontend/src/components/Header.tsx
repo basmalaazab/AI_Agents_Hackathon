@@ -1,13 +1,16 @@
 import React from "react";
-import { Download, Bot, Moon, Sun, BarChart3, LayoutDashboard, Brain, Database, Activity } from "lucide-react";
+import { Download, Bot, Moon, Sun, BarChart3, LayoutDashboard, Brain, Database, Activity, Users } from "lucide-react";
+import type { AuthUser } from "../services/auth";
 
-export type NavSection = "overview" | "analyst" | "sources" | "activity";
+export type NavSection = "overview" | "analyst" | "sources" | "team" | "activity";
 
 interface HeaderProps {
   theme: "dark" | "light";
   onToggleTheme: () => void;
   onOpenAIModal: () => void;
-  exportUrl: string;
+  onExport: () => void;
+  user: AuthUser;
+  onLogout: () => void;
   activeSection: NavSection;
   onSectionChange: (section: NavSection) => void;
 }
@@ -16,6 +19,7 @@ const NAV_TABS: { id: NavSection; label: string; Icon: React.ComponentType<{ siz
   { id: "overview",  label: "Overview",     Icon: LayoutDashboard },
   { id: "analyst",   label: "AI Analyst",   Icon: Brain },
   { id: "sources",   label: "Data Sources", Icon: Database },
+  { id: "team",      label: "Team",         Icon: Users },
   { id: "activity",  label: "Activity",     Icon: Activity },
 ];
 
@@ -23,7 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   onOpenAIModal,
-  exportUrl,
+  onExport,
+  user,
+  onLogout,
   activeSection,
   onSectionChange,
 }) => {
@@ -57,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
               Clearview BI
             </h1>
             <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              Digital Business Intelligence &amp; AI Analyst
+              Business insights from your data
             </p>
           </div>
         </div>
@@ -82,9 +88,8 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Ask AI Analyst</span>
           </button>
 
-          <a
-            href={exportUrl}
-            download
+          <button
+            onClick={onExport}
             className="btn btn-secondary"
             style={{ textDecoration: "none", fontSize: "0.85rem", padding: "9px 14px" }}
             aria-label="Export data as CSV"
@@ -92,7 +97,10 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Download size={16} />
             <span>Export CSV</span>
-          </a>
+          </button>
+
+          <span style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>{user.business_name}</span>
+          <button className="btn btn-secondary" onClick={onLogout} style={{ fontSize: "0.82rem", padding: "9px 12px" }}>Sign out</button>
 
           <button
             className="btn btn-secondary"
@@ -101,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
             aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             title={`Switch to ${theme === "dark" ? "Light" : "Dark"} mode`}
           >
-            {theme === "dark" ? <Sun size={18} color="#fbbf24" /> : <Moon size={18} color="#6366f1" />}
+            {theme === "dark" ? <Sun size={18} color="var(--accent-amber)" /> : <Moon size={18} color="var(--accent-indigo)" />}
           </button>
         </div>
       </div>

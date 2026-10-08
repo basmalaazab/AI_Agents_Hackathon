@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     shopify_access_token: Optional[str] = None
     hubspot_access_token: Optional[str] = None
     stripe_secret_key: Optional[str] = None
+    frontend_base_url: str = "http://localhost:5173"
+    smtp_host: Optional[str] = None
+    smtp_port: int = 587
+    smtp_username: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from_email: Optional[str] = None
 
     # Person 3: AI Agent Settings
     openai_api_key: Optional[str] = None

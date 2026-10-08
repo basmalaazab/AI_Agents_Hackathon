@@ -1,141 +1,107 @@
-# 📊 Clearview BI — Digital Business Intelligence & AI Analyst
+# Clearview BI
 
-> **Production-grade Digital Business Intelligence Solution designed for small business owners and startups.**  
-> Transform operational data from multiple sources (Stripe, HubSpot, Shopify, POS, CSV) into reliable business decisions, actionable growth plans, and natural-language AI insights in English and Arabic.
+Clearview BI is a business analytics demo for small businesses. It brings sales, customer, and product records into one database, shows key performance metrics, and lets owners ask questions about the data in English or Arabic.
 
----
+> **Demo data:** The included sample data is fictional. Treat dashboard values as examples unless you have imported your own records.
 
-## 🌟 Key Highlights
+## What you can do
 
-- **Executive AI Business Analyst:** Centered right on the workspace overview. Ask questions in natural English or Arabic and get answers backed by factual database records with separated facts and recommendations.
-- **Centralized Data Ingestion:** Connect external platforms (Stripe payments, HubSpot CRM, Shopify, POS terminals) and upload CSV files with automated deduplication and schema validation.
-- **Real-Time KPIs & Trends:** Executive dashboard displaying Revenue, Order Volume, Average Order Value (AOV), Repeat Customer Rate, and Product/Customer performance.
-- **Root-Cause Anomaly Diagnostics:** Deterministic diagnostics that identify revenue drops, high cancellation spikes, and dormant customer cohorts.
-- **Safe Read-Only SQL Inspection:** Integrated read-only SQL execution environment secured with keyword and table whitelisting guardrails.
-- **Multilingual Support:** Fully responsive bilingual AI reasoning capable of understanding and answering in fluent Arabic or professional English.
+- Import order, customer, and product CSV files. The pipeline checks required fields, cleans common formats, skips duplicates, and records invalid rows for review.
+- View revenue and order trends, category and source breakdowns, customer metrics, top products, and business alerts.
+- Ask the built-in analyst questions about revenue, orders, products, customers, trends, and recommendations. The deterministic analyst works without an external AI key.
+- Optionally enhance answers with OpenAI and use Gemini as a fallback by configuring server-side API keys.
+- Inspect read-only SQL results where supported by the analyst.
 
----
+## Data sources and current limits
 
-## 🏛️ System Architecture
+The project includes CSV, spreadsheet, mock API, Stripe, and HubSpot connector implementations. Stripe and HubSpot require valid server-side credentials. Registering a source does not by itself guarantee that the external service is connected or that synchronization will succeed. Shopify, social media, and customer-support integrations are not implemented in this version.
 
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                              DATA SOURCES                                    │
-│   CSV Imports │ Stripe Payments │ HubSpot CRM │ POS Terminals │ E-Commerce   │
-└───────────────────────────────┬──────────────────────────────────────────────┘
-                                │
-                                ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                         INGESTION & ETL PIPELINE                             │
-│  Validate → Sanitize → Deduplicate → Load                                    │
-│  • Raw audit trail preserved in raw_records                                  │
-│  • Data quality errors tracked in data_quality_errors                        │
-│  • Normalized tables: customers, orders, order_items, products               │
-└───────────────────────────────┬──────────────────────────────────────────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    ▼                       ▼
-┌───────────────────────────┐  ┌────────────────────────────────────────────┐
-│     ANALYTICS ENGINE      │  │           AI ANALYST ENGINE                │
-│  • Overview KPIs          │  │  • Natural Language Query Processing       │
-│  • Revenue & Sales Trends │  │  • Bilingual Arabic & English Reasoning    │
-│  • AOV & Customer Health  │  │  • Deterministic Analytical Engine         │
-│  • Dynamic Alert Rules    │  │  • Root-Cause Anomaly Diagnostics          │
-│  • CSV Analytics Export   │  │  • Strategic Action Plans                  │
-└───────────┬───────────────┘  │  • Optional LLM Synthesis (Gemini/OpenAI)  │
-            │                  └──────────────────┬─────────────────────────┘
-            │                                     │
-            └──────────────┬──────────────────────┘
-                           ▼
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                 CLEARVIEW BI — MODERN REACT WORKSPACE                        │
-│  Workspace Navigation: Overview │ AI Analyst │ Data Sources │ Activity       │
-│  Executive Green Design System │ Accessible │ Dark/Light Modes │ Mobile 390px │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+This is a hackathon/MVP build, not a production-ready financial system. Revenue analytics are in USD; non-USD orders are excluded because no exchange-rate conversion is configured. Product inventory can be imported and stock cover is estimated from the last 30 days of linked sales. The estimate does not include supplier lead time or safety stock. Cross-platform customer identity matching is not implemented. The Activity tab is a placeholder.
 
----
+Company accounts are enabled: the first account on an existing database keeps the current demo workspace, and each later signup creates a separate workspace. Company managers can invite teammates from the Team tab and assign manager or viewer access. SMTP settings enable email delivery; without SMTP, the app creates a secure seven-day invitation link to copy and send. Viewers can inspect dashboard and analyst results but cannot import data, manage sources, or sync connectors. Direct SQL access remains disabled so it cannot bypass workspace filters.
 
-## 🚀 Quick Start
+The Stripe connector uses a server-side `STRIPE_SECRET_KEY`. Add a restricted Stripe test key to the backend environment, register a Stripe source under Data Sources, and choose **Sync Stripe**. The app imports customers, products, and payments through the existing pipeline and shows the latest run status. Never paste the key into the browser or commit it.
 
-### Option 1: Docker Compose
+## Run locally
 
-```bash
-cd ai-bi-agent
-cp .env.example .env          # Set environment configuration
-docker compose up --build
-```
+Requirements: Python 3.11 or newer and Node.js with npm.
 
-| Service | Address |
-|---|---|
-| Frontend Workspace | http://localhost:5173 |
-| FastAPI Backend API | http://localhost:8000 |
-| Interactive API Docs | http://localhost:8000/docs |
-| System Health Check | http://localhost:8000/api/v1/health |
+### 1. Start the API
 
----
+From the repository root, create and activate a virtual environment, then install the Python dependencies:
 
-### Option 2: Local Development
-
-#### 1. Backend Setup (FastAPI & SQLite / PostgreSQL)
-
-```bash
-cd ai-bi-agent
-
-# Create and activate virtual environment
+```powershell
 python -m venv .venv
-.venv\Scripts\activate           # On Windows
-# source .venv/bin/activate      # On Linux/macOS
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Initialize database
-python scripts/init_db.py
-
-# Launch FastAPI backend
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:DATABASE_URL = "sqlite:///./local_runtime.db"
+$env:SCHEDULER_INTERVAL_MINUTES = "0"
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-#### 2. Frontend Setup (React + TypeScript + Vite)
+The API documentation is available at [http://localhost:8000/docs](http://localhost:8000/docs). Keep this terminal open.
 
-```bash
-cd ai-bi-agent/frontend
+### 2. Start the web app
 
-# Install node dependencies
+In a second terminal:
+
+```powershell
+cd frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-Visit **http://localhost:5173** to access the application.
+Open [http://localhost:5173](http://localhost:5173). The Vite development server proxies API requests to the local backend.
 
----
+### Optional: use external AI providers
 
-## 🔒 Security & Data Integrity
+Set `OPENAI_API_KEY` and/or `GEMINI_API_KEY` in the backend environment or an untracked local `.env` file. The backend tries OpenAI first, then Gemini, and falls back to the built-in analyst if neither provider responds. When enabled, the analytics context and question are sent to the selected provider. Keep keys out of the frontend and never commit `.env`.
 
-- **Strict Read-Only SQL:** Queries processed by the AI Analyst must begin with `SELECT` or `WITH`. Prohibited keywords (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `EXEC`) are blocked before database execution.
-- **Server-Side Credentials:** API keys and credentials for third-party platforms are stored strictly on the backend environment—never exposed to or stored in client browsers.
-- **Accurate State Reporting:** Real status checks via `/api/v1/health`. Indicators reflect verifiable database and connector states rather than simulated metrics.
+### Docker Compose
 
----
-
-## 🛠️ Testing & Verification
+With Docker installed and running, start the bundled PostgreSQL database, mock API, backend, and frontend:
 
 ```bash
-# Frontend build & lint
-cd ai-bi-agent/frontend
-npm run lint
-npm run build
-
-# Backend unit & integration tests
-cd ai-bi-agent
-pytest tests/unit/ tests/integration/ -v
+docker compose up --build
 ```
 
----
+The Compose backend uses PostgreSQL; the local-development commands above use SQLite.
 
-## 📄 License
+## How to use the app
 
-Internal proprietary release for small business analytics management.
+1. Choose a date range and, if needed, filter by a registered source.
+2. Review the KPI cards, trend chart, category/source breakdowns, products, and alerts.
+3. Ask the AI Business Analyst a specific question, such as “Why did revenue change this month?”
+4. Open **Data Sources** to upload CSV records or register an available connector. Check the pipeline result before relying on newly imported data.
+5. To demonstrate stock-risk analysis, seed synthetic recent sales using PowerShell:
+
+   ```powershell
+   $env:DATABASE_URL = "sqlite:///./demo_runtime.db"
+   $env:SCHEDULER_INTERVAL_MINUTES = "0"
+   python scripts/seed_demo_analytics.py
+   python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+
+   Stop any existing backend first, and keep this demo database separate from your own imported data. Then upload `data/sample_products.csv` as **Products** with source name `shopify_store`. The sample monitor is below its reorder point. Restart the backend after code updates so the API uses the latest changes.
+
+## Checks
+
+```powershell
+cd frontend
+npm run lint
+npm run build
+cd ..
+$env:DATABASE_URL = "sqlite:///./test_runtime.db"
+$env:SCHEDULER_INTERVAL_MINUTES = "0"
+$env:OPENAI_API_KEY = ""
+$env:GEMINI_API_KEY = ""
+python -m pytest tests -q
+```
+
+The backend test suite includes API integration tests that bind to localhost.
+
+## Project documentation
+
+- [Database and API reference](DATABASE_CONTRACT.md)
+- [Demo data notes](data/README.md)
+- [Frontend development notes](frontend/README.md)

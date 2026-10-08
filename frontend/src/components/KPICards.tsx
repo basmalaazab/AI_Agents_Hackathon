@@ -14,9 +14,9 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
     return (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px", marginBottom: "24px" }}>
         {[1, 2, 3, 4].map((n) => (
-          <div key={n} className="glass-card" style={{ padding: "24px", minHeight: "130px", opacity: 0.6 }}>
-            <div style={{ height: "16px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", width: "40%", marginBottom: "12px" }}></div>
-            <div style={{ height: "32px", background: "rgba(255,255,255,0.1)", borderRadius: "4px", width: "70%" }}></div>
+            <div key={n} className="glass-card" style={{ padding: "24px", minHeight: "130px", opacity: 0.6 }}>
+            <div style={{ height: "16px", background: "var(--skeleton-bg)", borderRadius: "4px", width: "40%", marginBottom: "12px" }}></div>
+            <div style={{ height: "32px", background: "var(--skeleton-bg)", borderRadius: "4px", width: "70%" }}></div>
           </div>
         ))}
       </div>
@@ -27,36 +27,36 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
 
   const cardConfig = [
     {
-      title: "Total Revenue",
+      title: "Revenue",
       metric: kpis.revenue,
       isCurrency: true,
       icon: DollarSign,
       color: "var(--accent-emerald)",
-      bgGradient: "linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(20, 184, 166, 0.05) 100%)",
+      bgGradient: "var(--kpi-revenue-bg)",
     },
     {
-      title: "Total Orders",
+      title: "Orders",
       metric: kpis.orders,
       isCurrency: false,
       icon: ShoppingBag,
       color: "var(--accent-indigo)",
-      bgGradient: "linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%)",
+      bgGradient: "var(--kpi-orders-bg)",
     },
     {
-      title: "Average Order Value",
+      title: "Average order value",
       metric: kpis.avg_order_value,
       isCurrency: true,
       icon: TrendingUp,
       color: "var(--accent-teal)",
-      bgGradient: "linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)",
+      bgGradient: "var(--kpi-aov-bg)",
     },
     {
-      title: "Active Customers",
+      title: "Active customers",
       metric: kpis.active_customers,
       isCurrency: false,
       icon: Users,
       color: "var(--accent-violet)",
-      bgGradient: "linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.05) 100%)",
+      bgGradient: "var(--kpi-customers-bg)",
     },
   ];
 
@@ -65,8 +65,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
       {cardConfig.map((c) => {
         const Icon = c.icon;
         const val = c.metric.current;
-        // Display the raw number. Currency symbol is intentionally omitted
-        // because the backend does not guarantee USD conversion.
+        // The interface explains that currency conversion is not applied.
         const formattedVal = c.isCurrency
           ? val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           : val.toLocaleString();

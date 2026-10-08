@@ -135,6 +135,9 @@ def test_get_sales_breakdown(db_session):
     assert "Electronics" in categories
     assert categories["Electronics"] == 300.0
     assert categories["Apparel"] == 50.0
+    category_shares = {c["category"]: c["percentage_of_total"] for c in breakdown["by_category"]}
+    assert category_shares["Electronics"] == 85.71
+    assert category_shares["Apparel"] == 14.29
 
     # Top products
     top_prods = breakdown["top_products"]
@@ -175,3 +178,34 @@ def test_get_ai_context(db_session):
     assert "business_alerts" in context
     assert "sales_performance" in context
     assert context["headline_kpis"]["revenue"]["current"] == 350.0
+
+
+def test_inventory_risk_uses_stock_level_and_recent_sales(db_session):
+    product = db_session.query(Product).filter_by(external_id="P-1").one()
+    product.stock_quantity = 3
+    product.reorder_point = 5
+    db_session.commit()
+
+    inventory = AnalyticsService(db_session).get_inventory_risk("test_store")
+    result = next(item for item in inventory["products"] if item["sku"] is None and item["name"] == "Widget A")
+    assert result["stock_quantity"] == 3
+    assert result["units_sold_last_30d"] == 3
+    assert result["estimated_days_of_cover"] == 30.0
+    assert result["at_risk"] is True
+
+
+def test_non_usd_orders_are_not_added_to_usd_revenue(db_session):
+    db_session.add(Order(
+        source_name="test_store",
+        external_id="O-GBP",
+        order_date=datetime.now(timezone.utc),
+        status="completed",
+        total_amount=1000,
+        currency="GBP",
+        total_amount_usd=None,
+    ))
+    db_session.commit()
+
+    overview = AnalyticsService(db_session).get_overview_kpis("30d")
+    assert overview["kpis"]["revenue"]["current"] == 350.0
+    assert overview["unconverted_orders_excluded"] == 1

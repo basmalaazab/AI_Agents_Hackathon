@@ -14,6 +14,7 @@ from sqlalchemy import Result, and_, case, func, or_, text
 from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
+from app.models.data_source import DataSource
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
@@ -113,6 +114,8 @@ class AnalyticsService:
                 "previous_start": p_start.isoformat() if p_start else None,
                 "previous_end": p_end.isoformat() if p_end else None,
             },
+            "revenue_currency": "USD",
+            "unconverted_orders_excluded": curr_stats["unconverted_orders"],
             "kpis": {
                 "revenue": self._build_kpi_metric(curr_stats["revenue"], prev_stats["revenue"] if prev_stats else None, is_currency=True),
                 "orders": self._build_kpi_metric(curr_stats["orders"], prev_stats["orders"] if prev_stats else None),
@@ -151,14 +154,23 @@ class AnalyticsService:
                 "cancelled_count": 0,
                 "total_attempts": 0,
                 "cancellation_rate": 0.0,
+                "unconverted_orders": 0,
             }
 
         valid_orders = [o for o in all_orders if o.status not in ("cancelled", "refunded")]
         cancelled_orders = [o for o in all_orders if o.status in ("cancelled", "refunded")]
 
-        total_rev = sum(float(o.total_amount_usd or o.total_amount or 0) for o in valid_orders)
+        total_rev = sum(
+            float(o.total_amount_usd or 0)
+            for o in valid_orders
+            if o.currency == "USD"
+        )
         order_count = len(valid_orders)
-        aov = (total_rev / order_count) if order_count > 0 else 0.0
+        usd_order_count = sum(
+            1 for order in valid_orders
+            if order.currency == "USD" and order.total_amount_usd is not None
+        )
+        aov = (total_rev / usd_order_count) if usd_order_count > 0 else 0.0
         unique_custs = len({o.customer_id for o in valid_orders if o.customer_id})
 
         total_attempts = len(all_orders)
@@ -173,6 +185,10 @@ class AnalyticsService:
             "cancelled_count": canc_count,
             "total_attempts": total_attempts,
             "cancellation_rate": canc_rate,
+            "unconverted_orders": sum(
+                1 for o in valid_orders
+                if o.currency != "USD" or o.total_amount_usd is None
+            ),
         }
 
     @staticmethod
@@ -217,7 +233,8 @@ class AnalyticsService:
             self.db.query(
                 func.date(Order.order_date).label("sale_date"),
                 func.count(Order.id).label("order_count"),
-                func.coalesce(func.sum(Order.total_amount_usd), 0).label("revenue_usd"),
+                func.sum(case((Order.currency == "USD", 1), else_=0)).label("usd_order_count"),
+                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
             )
             .filter(~Order.status.in_(["cancelled", "refunded"]))
         )
@@ -235,8 +252,9 @@ class AnalyticsService:
         result = []
         for r in rows:
             orders = int(r.order_count or 0)
+            usd_orders = int(r.usd_order_count or 0)
             rev = float(r.revenue_usd or 0)
-            aov = round(rev / orders, 2) if orders > 0 else 0.0
+            aov = round(rev / usd_orders, 2) if usd_orders > 0 else 0.0
             result.append({
                 "date": str(r.sale_date),
                 "revenue": round(rev, 2),
@@ -266,7 +284,7 @@ class AnalyticsService:
             self.db.query(
                 func.coalesce(Product.category, "Uncategorized").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(OrderItem.line_total), 0).label("revenue"),
+                func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
@@ -299,7 +317,7 @@ class AnalyticsService:
             self.db.query(
                 Order.source_name.label("platform"),
                 func.count(Order.id).label("orders"),
-                func.coalesce(func.sum(Order.total_amount_usd), 0).label("revenue"),
+                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue"),
             )
             .filter(~Order.status.in_(["cancelled", "refunded"]))
         )
@@ -311,9 +329,13 @@ class AnalyticsService:
             platform_query = platform_query.filter(Order.source_name == source_name)
 
         platform_rows = platform_query.group_by(Order.source_name).order_by(text("revenue DESC")).all()
+        source_labels = {
+            source.name: (source.display_name or source.name)
+            for source in self.db.query(DataSource).all()
+        }
         platforms = [
             {
-                "platform": r.platform,
+                "platform": source_labels.get(r.platform, r.platform),
                 "orders": int(r.orders or 0),
                 "revenue": round(float(r.revenue or 0), 2),
             }
@@ -327,7 +349,7 @@ class AnalyticsService:
                 OrderItem.sku,
                 func.coalesce(Product.category, "General").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(OrderItem.line_total), 0).label("revenue"),
+                func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
@@ -369,6 +391,68 @@ class AnalyticsService:
             return dt.replace(tzinfo=timezone.utc)
         return dt.astimezone(timezone.utc)
 
+    def get_inventory_risk(self, source_name: Optional[str] = None) -> Dict[str, Any]:
+        """Estimate stock cover from recorded product stock and the last 30 days of sales."""
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        query = (
+            self.db.query(
+                Product.id, Product.name, Product.sku, Product.stock_quantity,
+                Product.reorder_point, Product.source_name,
+                func.coalesce(
+                    func.sum(case((Order.id.isnot(None), OrderItem.quantity), else_=0)), 0
+                ).label("units_sold"),
+            )
+            .outerjoin(
+                OrderItem,
+                or_(
+                    OrderItem.product_id == Product.id,
+                    # Inventory catalogs are often imported separately from sales.
+                    # In that case, order items may already reference a different
+                    # product row, so still match them by SKU or product name.
+                    and_(Product.sku.isnot(None), OrderItem.sku == Product.sku),
+                    OrderItem.product_name == Product.name,
+                ),
+            )
+            .outerjoin(
+                Order,
+                and_(
+                    Order.id == OrderItem.order_id,
+                    Order.order_date >= cutoff,
+                    ~Order.status.in_(["cancelled", "refunded"]),
+                ),
+            )
+            .filter(Product.stock_quantity.isnot(None))
+        )
+        if source_name:
+            query = query.filter(Product.source_name == source_name)
+        rows = query.group_by(
+            Product.id, Product.name, Product.sku, Product.stock_quantity,
+            Product.reorder_point, Product.source_name,
+        ).all()
+        products = []
+        for row in rows:
+            sold = int(row.units_sold or 0)
+            qty = int(row.stock_quantity)
+            daily_rate = sold / 30
+            days_cover = round(qty / daily_rate, 1) if daily_rate > 0 else None
+            reorder = int(row.reorder_point) if row.reorder_point is not None else None
+            at_risk = qty == 0 or (reorder is not None and qty <= reorder) or (days_cover is not None and days_cover <= 14)
+            products.append({
+                "name": row.name, "sku": row.sku, "source_name": row.source_name,
+                "stock_quantity": qty, "reorder_point": reorder,
+                "units_sold_last_30d": sold, "estimated_days_of_cover": days_cover,
+                "at_risk": at_risk,
+            })
+        products.sort(key=lambda item: (not item["at_risk"], item["estimated_days_of_cover"] if item["estimated_days_of_cover"] is not None else float("inf")))
+        return {
+            "available": bool(products),
+            "period_days": 30,
+            "products_with_stock_data": len(products),
+            "at_risk_count": sum(1 for product in products if product["at_risk"]),
+            "products": products,
+            "method": "Risk means zero stock, stock at/below the supplied reorder point, or estimated stock cover of 14 days or less. Sales are a 30-day average; supplier lead time is not included.",
+        }
+
     # ---------------------------------------------------------------------------
     # Customer Analytics & Retention
     # ---------------------------------------------------------------------------
@@ -397,7 +481,7 @@ class AnalyticsService:
                 Customer.last_name,
                 Customer.source_name,
                 func.count(Order.id).label("total_orders"),
-                func.coalesce(func.sum(Order.total_amount_usd), 0).label("ltv"),
+                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("ltv"),
                 func.max(Order.order_date).label("last_order_date"),
                 func.min(Order.order_date).label("first_order_date"),
             )
@@ -550,6 +634,19 @@ class AnalyticsService:
                 "value": 0,
             })
 
+        inventory = self.get_inventory_risk(source_name)
+        for product in inventory["products"]:
+            if product["at_risk"]:
+                cover = product["estimated_days_of_cover"]
+                alerts.append({
+                    "id": f"inventory-{product['sku'] or product['name']}",
+                    "severity": "danger" if product["stock_quantity"] == 0 else "warning",
+                    "title": f"Low stock: {product['name']}",
+                    "message": f"{product['stock_quantity']} units remain; estimated cover is {cover} days." if cover is not None else f"{product['stock_quantity']} units remain and the product is at/below its reorder point.",
+                    "metric": "stock_quantity",
+                    "value": product["stock_quantity"],
+                })
+
         return alerts
 
     # ---------------------------------------------------------------------------
@@ -585,10 +682,16 @@ class AnalyticsService:
                 "revenue_by_platform": breakdown["by_platform"],
             },
             "customer_health": {
+                "total_registered_customers": customers["summary"]["total_registered_customers"],
                 "repeat_customer_rate_pct": customers["summary"]["repeat_customer_rate"],
                 "active_in_period": customers["summary"]["active_in_period"],
                 "new_in_period": customers["summary"]["new_in_period"],
                 "churn_at_risk_count": customers["summary"]["churn_at_risk_count"],
+            },
+            "inventory_risk": self.get_inventory_risk(source_name),
+            "currency_notice": {
+                "revenue_currency": "USD",
+                "unconverted_orders_excluded": overview["unconverted_orders_excluded"],
             },
             "daily_trend_summary": {
                 "total_days_recorded": len(trends),

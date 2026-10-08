@@ -129,3 +129,14 @@ class TestValidateProducts:
         })
         result = validate_products(df)
         assert result.valid_count == 0
+
+    def test_inventory_must_be_non_negative_whole_number(self):
+        df = pd.DataFrame({
+            "product_id": ["P001", "P002"],
+            "product_name": ["Widget A", "Widget B"],
+            "stock_quantity": [-2, 1.5],
+        })
+        result = validate_products(df)
+        assert result.valid_count == 0
+        assert len(result.errors) == 2
+        assert all(error["error_type"] == "invalid_inventory_value" for error in result.errors)

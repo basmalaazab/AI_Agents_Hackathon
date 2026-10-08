@@ -12,16 +12,17 @@ Exposes:
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.services.ai_agent_service import AIAgentService, SQLSafetyValidator
+from app.api.auth import get_current_user
+from app.services.ai_agent_service import AIAgentService
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/agent", tags=["AI Business Intelligence Agent (Person 3)"])
+router = APIRouter(prefix="/agent", tags=["AI Business Intelligence Agent (Person 3)"], dependencies=[Depends(get_current_user)])
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +52,14 @@ class DiagnoseRequest(BaseModel):
 class SQLSandboxRequest(BaseModel):
     query: str = Field(..., description="Read-only SQL SELECT query against clean tables")
     max_rows: int = Field(default=50, ge=1, le=100, description="Max rows to return (capped at 100)")
+
+
+class InventoryReorderDraftRequest(BaseModel):
+    product_name: str = Field(..., min_length=1)
+    product_sku: Optional[str] = None
+    source_name: str = Field(..., min_length=1)
+    supplier_lead_time_days: int = Field(..., ge=0, le=180)
+    target_cover_days: int = Field(default=14, ge=1, le=365)
 
 
 # ---------------------------------------------------------------------------
@@ -117,25 +126,22 @@ def execute_sql(
     req: SQLSandboxRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    Executes a read-only SQL query against clean database tables with strict security guardrails.
-    Rejects any mutation, DDL, multi-statement injection, or unapproved table access.
-    """
-    is_safe, error_msg = SQLSafetyValidator.validate(req.query)
-    if not is_safe:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Security violation: {error_msg}",
-        )
+    raise HTTPException(status_code=403, detail="Direct SQL access is disabled for company workspaces. Ask the AI Analyst a business question instead.")
 
-    svc = AIAgentService(db)
-    result = svc.execute_safe_sql(req.query, max_rows=req.max_rows)
-    if not result["success"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result.get("error", "SQL execution failed."),
-        )
-    return result
+
+@router.post("/inventory-reorder-draft", summary="Prepare a restock draft from current stock and recent sales")
+def prepare_inventory_reorder_draft(
+    req: InventoryReorderDraftRequest,
+    db: Session = Depends(get_db),
+):
+    """Calculate a draft quantity for human review; this does not place an order."""
+    return AIAgentService(db).prepare_inventory_reorder_draft(
+        product_name=req.product_name,
+        product_sku=req.product_sku,
+        source_name=req.source_name,
+        supplier_lead_time_days=req.supplier_lead_time_days,
+        target_cover_days=req.target_cover_days,
+    )
 
 
 @router.get("/suggestions", summary="Get Contextual Quick Prompt Suggestions")

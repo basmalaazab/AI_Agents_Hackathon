@@ -6,12 +6,14 @@ import type {
   BusinessAlert,
 } from "../types/analytics";
 import { API_V1 } from "./config";
+import { authenticatedFetch } from "./auth";
 
 const API_BASE_URL = `${API_V1}/analytics`;
 
 export interface DataSourceInfo {
   id: string;
   name: string;
+  display_name?: string | null;
   source_type: string;
   description: string | null;
   is_active: boolean;
@@ -36,6 +38,26 @@ export interface IngestionRunResult {
   error_message: string | null;
 }
 
+export interface PipelineRunInfo extends IngestionRunResult {
+  id: string;
+  data_source_id: string;
+  started_at: string;
+  finished_at: string | null;
+  record_type?: string;
+}
+
+export async function fetchStripeReadiness(): Promise<{ stripe: { configured: boolean; message: string } }> {
+  const res = await authenticatedFetch(`${API_V1}/sources/integration-readiness`);
+  if (!res.ok) throw new Error("Could not check Stripe configuration");
+  return res.json();
+}
+
+export async function fetchPipelineRuns(limit = 100): Promise<PipelineRunInfo[]> {
+  const res = await authenticatedFetch(`${API_V1}/pipelines/runs?limit=${limit}`);
+  if (!res.ok) throw new Error("Could not load pipeline run history");
+  return res.json();
+}
+
 export async function fetchOverviewKPIs(
   dateRange: string = "30d",
   sourceName?: string,
@@ -47,7 +69,7 @@ export async function fetchOverviewKPIs(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/overview?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/overview?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch overview KPIs");
   return res.json();
 }
@@ -63,7 +85,7 @@ export async function fetchRevenueTrends(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/revenue-trends?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/revenue-trends?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch revenue trends");
   return res.json();
 }
@@ -79,7 +101,7 @@ export async function fetchSalesBreakdown(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/sales-breakdown?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/sales-breakdown?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch sales breakdown");
   return res.json();
 }
@@ -95,7 +117,7 @@ export async function fetchCustomerAnalytics(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/customers?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/customers?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch customer analytics");
   return res.json();
 }
@@ -111,7 +133,7 @@ export async function fetchBusinessAlerts(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/alerts?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/alerts?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch business alerts");
   return res.json();
 }
@@ -127,7 +149,7 @@ export async function fetchAIContext(
   if (startDate) params.append("start_date", startDate);
   if (endDate) params.append("end_date", endDate);
 
-  const res = await fetch(`${API_BASE_URL}/ai-context?${params.toString()}`);
+  const res = await authenticatedFetch(`${API_BASE_URL}/ai-context?${params.toString()}`);
   if (!res.ok) throw new Error("Failed to fetch AI agent context");
   return res.json();
 }
@@ -147,7 +169,7 @@ export function getExportCSVUrl(
 }
 
 export async function fetchDataSources(): Promise<DataSourceInfo[]> {
-  const res = await fetch(`${API_V1}/sources`);
+  const res = await authenticatedFetch(`${API_V1}/sources`);
   if (!res.ok) throw new Error("Failed to fetch data sources");
   return res.json();
 }
@@ -156,7 +178,7 @@ export async function createDataSource(
   name: string,
   sourceType: "hubspot" | "stripe"
 ): Promise<DataSourceInfo> {
-  const res = await fetch(`${API_V1}/sources`, {
+  const res = await authenticatedFetch(`${API_V1}/sources`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, source_type: sourceType }),
@@ -169,7 +191,7 @@ export async function createDataSource(
 }
 
 export async function fetchPipelineSummary(): Promise<PipelineSummary> {
-  const res = await fetch(`${API_V1}/pipelines/summary`);
+  const res = await authenticatedFetch(`${API_V1}/pipelines/summary`);
   if (!res.ok) throw new Error("Failed to fetch pipeline summary");
   return res.json();
 }
@@ -178,7 +200,7 @@ export async function triggerPipeline(
   sourceId: string,
   recordType: "customer" | "product" | "order"
 ): Promise<IngestionRunResult> {
-  const res = await fetch(`${API_V1}/pipelines/trigger`, {
+  const res = await authenticatedFetch(`${API_V1}/pipelines/trigger`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ source_id: sourceId, record_type: recordType }),
@@ -200,7 +222,7 @@ export async function uploadCsvFile(
   form.append("record_type", recordType);
   form.append("source_name", sourceName);
 
-  const res = await fetch(`${API_V1}/upload/csv`, {
+  const res = await authenticatedFetch(`${API_V1}/upload/csv`, {
     method: "POST",
     body: form,
   });
