@@ -73,6 +73,20 @@ export interface TopCustomer {
   last_order_date: string | null;
 }
 
+export interface RFMSegment {
+  id: string;
+  name: string;
+  count: number;
+  percentage: number;
+  badge_color: string;
+  strategy: string;
+}
+
+export interface RFMSegmentationData {
+  average_ltv: number;
+  segments: RFMSegment[];
+}
+
 export interface CustomerAnalyticsData {
   summary: {
     total_registered_customers: number;
@@ -88,6 +102,7 @@ export interface CustomerAnalyticsData {
     "4_5_orders": number;
     "6_plus_orders": number;
   };
+  rfm_segmentation?: RFMSegmentationData;
   top_customers: TopCustomer[];
 }
 

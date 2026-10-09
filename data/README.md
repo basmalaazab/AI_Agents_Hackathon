@@ -1,22 +1,31 @@
 # Demo data
 
-Every dataset in this folder is synthetic and fictional. It is provided for development and hackathon demos; it does not contain real customer or business records.
+All records in this directory are synthetic and fictional. They are for local development and hackathon demonstrations; they do not describe real customers, merchants or business performance.
 
-## CSV examples
+## Included CSV examples
 
-| File | Contents | Example quality issues |
+| File | Contents | Demonstrates |
 | --- | --- | --- |
-| `sample_sales.csv` | Order and sales rows | Duplicate IDs, missing fields, negative amounts, inconsistent dates, and formatted currency values |
-| `sample_customers.csv` | Customer profile rows | Duplicate IDs, missing or invalid emails, inconsistent name casing, and empty rows |
-| `sample_products.csv` | Product catalog and stock levels | Synthetic 4K monitor stock is below its reorder point |
+| `sample_sales.csv` | Order and line-item fields | Validation, date and currency normalization, duplicate detection and invalid-row reporting |
+| `sample_customers.csv` | Customer profile fields | Customer ingestion, required-field checks and duplicate handling |
+| `sample_products.csv` | Product catalog and optional stock fields | Inventory import, reorder points and low-stock alerts |
 
-The ingestion pipeline reports invalid rows and duplicate records rather than silently treating them as valid new data. Exact counts can change as these examples are edited; use the import result in the app as the source of truth.
+The examples may include malformed, duplicate or incomplete rows on purpose. Exact counts can change as the files or validation rules change; use the app's import result and Activity page as the source of truth.
 
-## Try the examples
+## Import the sample files
 
-1. Start the backend and frontend using the repository [Quick Start](../README.md#run-locally).
-2. In the app, open **Data Sources**.
-3. Select the record type, choose one of the CSV files, and upload it.
-4. Review the fetched, inserted, duplicate, and invalid row counts. To demo `sample_products.csv`, seed recent synthetic sales into a separate demo database (`DATABASE_URL=sqlite:///./demo_runtime.db`) and run the backend against that database; then choose **Products** and use source name `shopify_store` to match the demo sales data.
+1. Start the API and frontend using the repository [local setup](../README.md#run-locally-on-windows).
+2. Create or sign in to a company workspace.
+3. Open **Data Sources**, choose **Orders**, **Customers** or **Products**, select a file, and upload it.
+4. Use a consistent source name when products must be linked to order lines (for example, use `shopify_store` for both).
+5. Review the ingestion result: fetched, inserted, duplicate and invalid records. Open **Activity** to inspect the timestamped pipeline run.
 
-The pipeline does not convert currencies. Non-USD orders are excluded from USD revenue totals. Do not use these files to infer real business performance.
+Revenue is normalized to USD where a supported reference rate is available. Unknown currencies are excluded from USD revenue and reported. These rates are for product analytics, not accounting.
+
+## Inventory-risk walkthrough
+
+Product rows may include `stock_quantity` and `reorder_point`. To demonstrate a stock warning, import the sample product file under the same source as sales data and ensure recent linked sales are present. The product example includes a synthetic 4K monitor balance below its reorder point. Inventory cover is estimated from recorded recent sales and does not include supplier lead time or safety stock.
+
+An AI reorder draft can suggest a target quantity when it has current stock plus enough recent sales or an imported reorder point. It is a review-only calculation; no purchase order is submitted.
+
+Keep demo records in a disposable database. Do not combine sample rows with a real business workspace when reporting actual performance.

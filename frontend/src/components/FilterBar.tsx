@@ -29,101 +29,49 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   isLoading,
   sources,
 }) => {
-  const presets = [
-    { label: "Today", value: "today" },
-    { label: "7 Days", value: "7d" },
-    { label: "30 Days", value: "30d" },
-    { label: "3 Months", value: "3m" },
-    { label: "6 Months", value: "6m" },
-    { label: "12 Months", value: "12m" },
-    { label: "All Time", value: "all" },
-    { label: "Custom Range", value: "custom" },
-  ];
-
   return (
-    <div className="glass-card" style={{ padding: "16px 24px", marginBottom: "24px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
-        {/* Date Presets */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-secondary)", fontSize: "0.85rem", fontWeight: 600, marginRight: "4px" }}>
-            <Calendar size={16} /> Period:
-          </div>
-          {presets.map((p) => {
-            const isActive = dateRange === p.value;
-            return (
-              <button
-                key={p.value}
-                onClick={() => onSelectDateRange(p.value)}
-                aria-pressed={isActive}
-                style={{
-                  background: isActive ? "var(--accent-indigo)" : "var(--card-subtle-bg)",
-                  color: isActive ? "var(--accent-on-primary)" : "var(--text-secondary)",
-                  border: isActive ? "1px solid var(--accent-indigo)" : "1px solid var(--card-border)",
-                  borderRadius: "8px",
-                  padding: "6px 12px",
-                  fontSize: "0.8rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                {p.label}
-              </button>
-            );
-          })}
+    <div className="glass-card filter-toolbar">
+      <label className="filter-control">
+        <span><Calendar size={15} /> Period</span>
+        <select className="select-input" aria-label="Choose date range" value={dateRange} onChange={(e) => onSelectDateRange(e.target.value)}>
+          <option value="today">Today</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+          <option value="3m">Last 3 months</option>
+          <option value="6m">Last 6 months</option>
+          <option value="12m">Last 12 months</option>
+          <option value="all">All time</option>
+          <option value="custom">Custom dates</option>
+        </select>
+      </label>
+
+      <label className="filter-control source-filter-control">
+        <span><Filter size={15} /> Data source</span>
+        <select
+          className="select-input"
+          aria-label="Filter by data source"
+          value={sourceName}
+          onChange={(e) => onSelectSourceName(e.target.value)}
+        >
+          <option value="">All sources</option>
+          {sources.map((s) => (
+            <option key={s.id} value={s.name}>
+              {s.display_name || s.name} · {s.source_type === "csv" ? "CSV" : s.source_type === "stripe" ? "Stripe" : s.source_type}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {dateRange === "custom" && (
+        <div className="filter-custom-dates" aria-label="Custom date range">
+          <label><span>From</span><input type="date" className="date-input" aria-label="Start date" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} /></label>
+          <label><span>To</span><input type="date" className="date-input" aria-label="End date" value={endDate} onChange={(e) => onEndDateChange(e.target.value)} /></label>
         </div>
+      )}
 
-        {/* Platform & Custom Dates & Refresh */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          {dateRange === "custom" && (
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <input
-                type="date"
-                className="date-input"
-                aria-label="Start date"
-                value={startDate}
-                onChange={(e) => onStartDateChange(e.target.value)}
-              />
-              <span style={{ color: "var(--text-muted)" }}>to</span>
-              <input
-                type="date"
-                className="date-input"
-                aria-label="End date"
-                value={endDate}
-                onChange={(e) => onEndDateChange(e.target.value)}
-              />
-            </div>
-          )}
-
-          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Filter size={16} color="var(--text-secondary)" />
-            <select
-              className="select-input"
-              aria-label="Filter by data source"
-              value={sourceName}
-              onChange={(e) => onSelectSourceName(e.target.value)}
-            >
-              <option value="">All Data Sources</option>
-              {sources.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.display_name || s.name} ({s.source_type})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <button
-            className="btn btn-secondary"
-            onClick={onRefresh}
-            disabled={isLoading}
-            style={{ padding: "8px 12px" }}
-            aria-label={isLoading ? "Refreshing analytics" : "Refresh analytics"}
-            title="Refresh Analytics"
-          >
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
-          </button>
-        </div>
-      </div>
+      <button className="btn btn-secondary filter-refresh" onClick={onRefresh} disabled={isLoading} aria-label={isLoading ? "Refreshing analytics" : "Refresh analytics"}>
+        <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} /> <span>{isLoading ? "Refreshing" : "Refresh"}</span>
+      </button>
     </div>
   );
 };

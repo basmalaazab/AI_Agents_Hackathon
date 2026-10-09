@@ -8,6 +8,7 @@ from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.data_quality_error import DataQualityError
 from app.models.auth import AppUser, AuthSession, UserChatMessage, Workspace, WorkspaceInvitation
+from app.models.audit_event import AuditEvent
 
 __all__ = [
     "DataSource",
@@ -23,4 +24,5 @@ __all__ = [
     "Workspace",
     "AuthSession",
     "WorkspaceInvitation",
+    "AuditEvent",
 ]

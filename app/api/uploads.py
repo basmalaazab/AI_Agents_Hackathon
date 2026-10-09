@@ -65,21 +65,21 @@ async def upload_csv(
             detail="Uploaded file is empty.",
         )
 
-    # Get or create data source
-    source = db.query(DataSource).filter_by(name=source_name).first()
+    # Map the user-facing source label to a tenant-specific, globally unique key.
+    # Never look up the raw label directly: legacy/global names could belong to a
+    # different workspace and must not be reused for this upload.
+    display_name = source_name.strip()[:120] or "csv_import"
+    internal_name = make_workspace_source_key(db.info["workspace_id"], display_name)
+    source = db.query(DataSource).filter_by(name=internal_name).first()
     if source is None:
-        display_name = source_name.strip()[:120] or "csv_import"
-        internal_name = make_workspace_source_key(db.info["workspace_id"], display_name)
-        source = db.query(DataSource).filter_by(name=internal_name).first()
-        if source is None:
-            source = DataSource(
-                name=internal_name,
-                display_name=display_name,
-                source_type="csv",
-                workspace_id=db.info["workspace_id"],
-            )
-            db.add(source)
-            db.flush()
+        source = DataSource(
+            name=internal_name,
+            display_name=display_name,
+            source_type="csv",
+            workspace_id=db.info["workspace_id"],
+        )
+        db.add(source)
+        db.flush()
 
     svc = IngestionService(db)
     run: IngestionRun = svc.run_csv_ingestion(

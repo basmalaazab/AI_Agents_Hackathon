@@ -90,6 +90,69 @@ export async function askAIAgent(
   return res.json();
 }
 
+export async function streamAIAgent(
+  query: string,
+  dateRange: string = "30d",
+  sourceName?: string,
+  conversationHistory?: { role: string; content: string }[],
+  onChunk?: (token: string, modelUsed?: string) => void,
+  onComplete?: (finalResponse: AgentQueryResponse) => void
+): Promise<AgentQueryResponse> {
+  const res = await authenticatedFetch(`${AGENT_BASE_URL}/query/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query,
+      date_range: dateRange,
+      source_name: sourceName || null,
+      conversation_history: conversationHistory || null,
+      include_sql: true,
+    }),
+  });
+
+  if (!res.ok) {
+    return askAIAgent(query, dateRange, sourceName, conversationHistory, true);
+  }
+
+  const reader = res.body?.getReader();
+  if (!reader) {
+    return askAIAgent(query, dateRange, sourceName, conversationHistory, true);
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let finalResult: AgentQueryResponse | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || "";
+
+    for (const block of lines) {
+      const match = block.match(/^data:\s*(.+)$/m);
+      if (match) {
+        try {
+          const payload = JSON.parse(match[1]);
+          if (payload.chunk && onChunk) {
+            onChunk(payload.chunk, payload.model_used);
+          }
+          if (payload.done && payload.full_result) {
+            finalResult = payload.full_result;
+            if (onComplete) onComplete(payload.full_result);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
+  if (finalResult) return finalResult;
+  return askAIAgent(query, dateRange, sourceName, conversationHistory, true);
+}
+
 export async function fetchRecommendations(
   dateRange: string = "30d",
   sourceName?: string,

@@ -6,6 +6,7 @@ import { KPICards } from "./components/KPICards";
 import { RevenueTrendChart } from "./components/RevenueTrendChart";
 import { CategoryBreakdownChart } from "./components/CategoryBreakdownChart";
 import { TopPerformersTable } from "./components/TopPerformersTable";
+import { RFMSegmentsPanel } from "./components/RFMSegmentsPanel";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { InventoryRiskPanel } from "./components/InventoryRiskPanel";
 import { AIChatCopilotModal } from "./components/AIChatCopilotModal";
@@ -23,11 +24,13 @@ import {
   fetchAIContext,
   fetchDataSources,
   fetchPipelineSummary,
-  getExportCSVUrl,
+  getExportXLSXUrl,
   type DataSourceInfo,
   type PipelineSummary,
 } from "./services/api";
 import { authenticatedFetch, clearAuthToken, getAuthToken, getCurrentUser, logout, type AuthUser } from "./services/auth";
+import { fetchRecommendations } from "./services/agentApi";
+import type { StrategicRecommendation } from "./types/agent";
 import type {
   OverviewKPIs,
   RevenueTrendPoint,
@@ -36,7 +39,7 @@ import type {
   BusinessAlert,
 } from "./types/analytics";
 
-import { RefreshCw, WifiOff } from "lucide-react";
+import { RefreshCw, WifiOff, ArrowRight, BarChart3, Sparkles } from "lucide-react";
 
 const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user, onLogout }) => {
   // Theme state — light is the default for a professional SaaS look
@@ -64,6 +67,7 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
+  const [printRecommendations, setPrintRecommendations] = useState<StrategicRecommendation[] | null>(null);
 
   // Apply theme to document
   const toggleTheme = () => {
@@ -80,6 +84,17 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
   // Open AI Analyst modal directly
   const handleOpenAIModal = () => {
     setIsAIModalOpen(true);
+  };
+
+  const handleOpenDataSources = () => setActiveSection("sources");
+
+  const handlePrintReport = async () => {
+    let recommendations: StrategicRecommendation[] = [];
+    try { recommendations = (await fetchRecommendations(dateRange, sourceName)).recommendations; }
+    catch (err) { console.error("Could not load AI recommendations for the printable report", err); }
+    window.addEventListener("afterprint", () => setPrintRecommendations(null), { once: true });
+    setPrintRecommendations(recommendations);
+    window.setTimeout(() => window.print(), 100);
   };
 
   // Fetch all analytics and data source metadata
@@ -134,19 +149,20 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
     await loadAnalytics();
   };
 
-  const exportUrl = getExportCSVUrl(dateRange, sourceName, startDate, endDate);
+  const exportUrl = getExportXLSXUrl(dateRange, sourceName, startDate, endDate);
   const handleExport = async () => {
     const response = await authenticatedFetch(exportUrl);
-    if (!response.ok) throw new Error("Could not export CSV data.");
+    if (!response.ok) throw new Error("Could not export the Excel report.");
     const objectUrl = URL.createObjectURL(await response.blob());
     const anchor = document.createElement("a");
-    anchor.href = objectUrl; anchor.download = "clearview-analytics.csv"; anchor.click();
+    anchor.href = objectUrl; anchor.download = `clearview-bi-report-${dateRange}.xlsx`; anchor.click();
     URL.revokeObjectURL(objectUrl);
   };
   const apiOffline = !isLoading && error !== null;
 
   return (
     <div
+      className="dashboard-shell"
       style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px 16px 64px" }}
       role="main"
     >
@@ -156,6 +172,7 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
         onToggleTheme={toggleTheme}
         onOpenAIModal={handleOpenAIModal}
         onExport={handleExport}
+        onPrintReport={handlePrintReport}
         user={user}
         onLogout={onLogout}
         activeSection={activeSection}
@@ -168,8 +185,12 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <WifiOff size={18} className="error-icon" aria-hidden="true" />
             <div>
-              <strong>Can’t reach the backend.</strong>{" "}
-              <span style={{ color: "var(--text-secondary)" }}>{error}</span>
+              <strong>Your dashboard couldn’t load.</strong>{" "}
+              <span style={{ color: "var(--text-secondary)" }}>Check your connection and try again.</span>
+              <details className="api-error-details">
+                <summary>Technical details</summary>
+                <span>{error}</span>
+              </details>
             </div>
           </div>
           <button
@@ -186,16 +207,14 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
       {/* ── OVERVIEW SECTION ─────────────────────────────────── */}
       {activeSection === "overview" && (
         <section aria-label="Business overview">
-          {/* AI Briefing Panel — primary feature */}
-          <AIBriefingPanel
-            aiData={aiContextData}
-            dateRange={dateRange}
-            sourceName={sourceName}
-            onOpenFullModal={handleOpenAIModal}
-            apiOffline={apiOffline}
-          />
-
-          {/* Filter Bar */}
+          <div className="page-intro">
+            <div>
+              <span className="page-eyebrow">YOUR BUSINESS</span>
+              <h2>Business overview</h2>
+              <p>Track sales, customers, and inventory in one place.</p>
+            </div>
+          </div>
+          {/* Keep the landing page focused on a few decisions at a time. */}
           <FilterBar
             dateRange={dateRange}
             onSelectDateRange={setDateRange}
@@ -211,45 +230,40 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
           />
           <p className="currency-note" role="note">
             {aiContextData?.currency_notice?.unconverted_orders_excluded > 0
-              ? `${aiContextData.currency_notice.unconverted_orders_excluded} non-USD orders are excluded from revenue totals because exchange-rate conversion is not configured.`
-              : "Revenue totals are shown in USD. No exchange-rate conversion is applied to other currencies."}
+              ? `${aiContextData.currency_notice.unconverted_orders_excluded} orders use currencies without a configured USD rate and are excluded from revenue totals.`
+              : <>Revenue is shown in USD using daily rates where available. Rate source: <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">ExchangeRate-API</a>.</>}
           </p>
-
-          {/* Business Alerts */}
-          <AlertsPanel alerts={alerts} isLoading={isLoading} apiOffline={apiOffline} />
-          <InventoryRiskPanel inventory={aiContextData?.inventory_risk} isLoading={isLoading} />
 
           {/* KPI Cards */}
           <KPICards data={overview} isLoading={isLoading} />
 
-          {/* Revenue Trend Chart */}
-          <RevenueTrendChart data={trends} isLoading={isLoading} />
+          {/* Business Alerts */}
+          <AlertsPanel alerts={alerts} isLoading={isLoading} apiOffline={apiOffline} />
 
-          {/* Category & Platform Breakdown */}
-          <CategoryBreakdownChart data={breakdown} isLoading={isLoading} />
-
-          {/* Top Products & Top Customers */}
-          <TopPerformersTable
-            topProducts={breakdown?.top_products || []}
-            topCustomers={customers?.top_customers || []}
-            isLoading={isLoading}
-          />
+          <div className="overview-actions">
+            <button className="overview-action" onClick={() => setActiveSection("performance")}>
+              <span className="overview-action-icon"><BarChart3 size={19} /></span>
+              <span><strong>Explore performance</strong><small>Sales trends, top products, and customer activity</small></span>
+              <ArrowRight size={17} />
+            </button>
+            <button className="overview-action" onClick={() => setActiveSection("analyst")}>
+              <span className="overview-action-icon ai"><Sparkles size={19} /></span>
+              <span><strong>Ask the AI Analyst</strong><small>Get answers grounded in your selected data</small></span>
+              <ArrowRight size={17} />
+            </button>
+          </div>
         </section>
       )}
 
-      {/* ── AI ANALYST SECTION ───────────────────────────────── */}
-      {activeSection === "analyst" && (
-        <section aria-label="AI Analyst workspace">
-          {/* Re-use the briefing panel as the entry point */}
-          <AIBriefingPanel
-            aiData={aiContextData}
-            dateRange={dateRange}
-            sourceName={sourceName}
-            onOpenFullModal={handleOpenAIModal}
-            apiOffline={apiOffline}
-          />
-
-          {/* Filter Bar */}
+      {activeSection === "performance" && (
+        <section aria-label="Business performance">
+          <div className="page-intro">
+            <div>
+              <span className="page-eyebrow">DETAILED ANALYTICS</span>
+              <h2>Performance</h2>
+              <p>Explore trends, product results, customers, and stock risk.</p>
+            </div>
+          </div>
           <FilterBar
             dateRange={dateRange}
             onSelectDateRange={setDateRange}
@@ -263,29 +277,50 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
             isLoading={isLoading}
             sources={dataSources}
           />
-          <p className="currency-note" role="note">
-            Currency conversion is not applied. Filter to one source if your data uses different currencies.
-          </p>
+          <RevenueTrendChart data={trends} isLoading={isLoading} />
+          <CategoryBreakdownChart data={breakdown} isLoading={isLoading} />
+          <InventoryRiskPanel inventory={aiContextData?.inventory_risk} isLoading={isLoading} />
+          <TopPerformersTable
+            topProducts={breakdown?.top_products || []}
+            topCustomers={customers?.top_customers || []}
+            isLoading={isLoading}
+          />
+          <RFMSegmentsPanel segments={customers?.rfm_segmentation?.segments} isLoading={isLoading} />
+        </section>
+      )}
 
-          {/* Prompt to open the full modal */}
-          <div
-            className="glass-card"
-            style={{ padding: "32px", textAlign: "center" }}
-          >
-            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "8px" }}>
-              Explore your business data
-            </h3>
-            <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", marginBottom: "20px", maxWidth: "560px", margin: "0 auto 20px" }}>
-              Review recommendations, investigate unusual changes, or ask focused questions about your business data.
-            </p>
-            <button
-              className="btn btn-primary"
-              onClick={handleOpenAIModal}
-              style={{ fontSize: "0.9rem", padding: "10px 24px", background: "var(--accent-indigo)", color: "var(--accent-on-primary)" }}
-            >
-              Open AI Analyst
-            </button>
+      {/* ── AI ANALYST SECTION ───────────────────────────────── */}
+      {activeSection === "analyst" && (
+        <section aria-label="AI Analyst workspace">
+          <div className="page-intro">
+            <div>
+              <span className="page-eyebrow">ASK IN PLAIN LANGUAGE</span>
+              <h2>AI Business Analyst</h2>
+              <p>Ask about sales, customers, products, and trends in your business data.</p>
+            </div>
           </div>
+          <FilterBar
+            dateRange={dateRange}
+            onSelectDateRange={setDateRange}
+            sourceName={sourceName}
+            onSelectSourceName={setSourceName}
+            startDate={startDate}
+            onStartDateChange={setStartDate}
+            endDate={endDate}
+            onEndDateChange={setEndDate}
+            onRefresh={loadAnalytics}
+            isLoading={isLoading}
+            sources={dataSources}
+          />
+          <p className="currency-note" role="note">Revenue is shown in USD using daily rates where available. Rate source: <a href="https://www.exchangerate-api.com" target="_blank" rel="noreferrer">ExchangeRate-API</a>.</p>
+          <AIBriefingPanel
+            aiData={aiContextData}
+            dateRange={dateRange}
+            sourceName={sourceName}
+            onOpenFullModal={handleOpenAIModal}
+            onOpenDataSources={handleOpenDataSources}
+            apiOffline={apiOffline}
+          />
         </section>
       )}
 
@@ -314,6 +349,16 @@ const DashboardApp: React.FC<{ user: AuthUser; onLogout: () => void }> = ({ user
         dateRange={dateRange}
         sourceName={sourceName}
       />
+      {printRecommendations && <article className="executive-print-report">
+        <header><div className="print-brand-mark">CB</div><div><p className="print-eyebrow">CLEARVIEW BI · EXECUTIVE REPORT</p><h1>Business performance summary</h1><p>{dateRange} · {sourceName || "All connected sources"} · Generated {new Date().toLocaleDateString()}</p></div></header>
+        <section className="print-kpis">
+          {[ ["Revenue", overview?.kpis.revenue.current, "USD"], ["Orders", overview?.kpis.orders.current, ""], ["Average order value", overview?.kpis.avg_order_value.current, "USD"], ["Active customers", overview?.kpis.active_customers.current, ""] ].map(([label, value, unit]) => <div key={String(label)}><small>{label}</small><strong>{unit === "USD" ? `$${Number(value || 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}` : Number(value || 0).toLocaleString()}</strong></div>)}
+        </section>
+        <section><h2>Key alerts</h2>{alerts.length ? <ul>{alerts.slice(0, 5).map((alert) => <li key={alert.id}><strong>{alert.title}</strong>: {alert.message}</li>)}</ul> : <p>No active alerts for this period.</p>}</section>
+        <section><h2>Top products</h2><ol>{(breakdown?.top_products || []).slice(0, 5).map((product) => <li key={product.sku || product.name}>{product.name} — ${Number(product.revenue).toLocaleString("en-US", { minimumFractionDigits: 2 })}</li>)}</ol></section>
+        <section><h2>AI recommendations</h2>{printRecommendations.length ? printRecommendations.slice(0, 5).map((recommendation) => <div className="print-recommendation" key={recommendation.id}><h3>{recommendation.title} <small>{recommendation.priority}</small></h3><p>{recommendation.data_justification}</p><ul>{recommendation.action_steps.slice(0, 3).map((step) => <li key={step}>{step}</li>)}</ul></div>) : <p>Recommendations are unavailable. Open the AI Analyst to review this period.</p>}</section>
+        <footer>Prepared by Clearview BI · Revenue includes orders with a supported USD conversion rate. Exchange-rate source: ExchangeRate-API (daily reference rates).</footer>
+      </article>}
     </div>
   );
 };

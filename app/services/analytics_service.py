@@ -163,12 +163,12 @@ class AnalyticsService:
         total_rev = sum(
             float(o.total_amount_usd or 0)
             for o in valid_orders
-            if o.currency == "USD"
+            if o.total_amount_usd is not None
         )
         order_count = len(valid_orders)
         usd_order_count = sum(
             1 for order in valid_orders
-            if order.currency == "USD" and order.total_amount_usd is not None
+            if order.total_amount_usd is not None
         )
         aov = (total_rev / usd_order_count) if usd_order_count > 0 else 0.0
         unique_custs = len({o.customer_id for o in valid_orders if o.customer_id})
@@ -187,7 +187,7 @@ class AnalyticsService:
             "cancellation_rate": canc_rate,
             "unconverted_orders": sum(
                 1 for o in valid_orders
-                if o.currency != "USD" or o.total_amount_usd is None
+                if o.total_amount_usd is None
             ),
         }
 
@@ -233,8 +233,8 @@ class AnalyticsService:
             self.db.query(
                 func.date(Order.order_date).label("sale_date"),
                 func.count(Order.id).label("order_count"),
-                func.sum(case((Order.currency == "USD", 1), else_=0)).label("usd_order_count"),
-                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
+                func.sum(case((Order.total_amount_usd.is_not(None), 1), else_=0)).label("usd_order_count"),
+                func.coalesce(func.sum(case((Order.total_amount_usd.is_not(None), Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
             )
             .filter(~Order.status.in_(["cancelled", "refunded"]))
         )
@@ -284,7 +284,7 @@ class AnalyticsService:
             self.db.query(
                 func.coalesce(Product.category, "Uncategorized").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).label("revenue"),
+                func.coalesce(func.sum(case((OrderItem.line_total_usd.is_not(None), OrderItem.line_total_usd), else_=0)), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
@@ -317,7 +317,7 @@ class AnalyticsService:
             self.db.query(
                 Order.source_name.label("platform"),
                 func.count(Order.id).label("orders"),
-                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue"),
+                func.coalesce(func.sum(case((Order.total_amount_usd.is_not(None), Order.total_amount_usd), else_=0)), 0).label("revenue"),
             )
             .filter(~Order.status.in_(["cancelled", "refunded"]))
         )
@@ -349,7 +349,7 @@ class AnalyticsService:
                 OrderItem.sku,
                 func.coalesce(Product.category, "General").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(case((OrderItem.currency == "USD", OrderItem.line_total), else_=0)), 0).label("revenue"),
+                func.coalesce(func.sum(case((OrderItem.line_total_usd.is_not(None), OrderItem.line_total_usd), else_=0)), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
@@ -481,7 +481,7 @@ class AnalyticsService:
                 Customer.last_name,
                 Customer.source_name,
                 func.count(Order.id).label("total_orders"),
-                func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("ltv"),
+                func.coalesce(func.sum(case((Order.total_amount_usd.isnot(None), Order.total_amount_usd), else_=0)), 0).label("ltv"),
                 func.max(Order.order_date).label("last_order_date"),
                 func.min(Order.order_date).label("first_order_date"),
             )
@@ -528,6 +528,96 @@ class AnalyticsService:
         cutoff_60d = datetime.now(timezone.utc) - timedelta(days=60)
         churn_at_risk = [c for c in cust_order_counts if c.last_order_date and self._to_utc(c.last_order_date) < cutoff_60d]
 
+        # RFM Segmentation Analysis
+        now_utc = datetime.now(timezone.utc)
+        avg_ltv = (sum(float(c.ltv or 0) for c in cust_order_counts) / len(cust_order_counts)) if cust_order_counts else 0.0
+
+        champions = []
+        loyal = []
+        potential = []
+        new_custs = []
+        at_risk = []
+        lost = []
+
+        for c in cust_order_counts:
+            c_last = self._to_utc(c.last_order_date)
+            recency_days = (now_utc - c_last).days if c_last else 999
+            freq = int(c.total_orders or 0)
+            monetary = float(c.ltv or 0)
+
+            c_info = {
+                "id": str(c.id),
+                "name": f"{c.first_name or ''} {c.last_name or ''}".strip() or "Customer",
+                "email": c.email,
+                "recency_days": recency_days,
+                "frequency": freq,
+                "monetary": round(monetary, 2),
+            }
+
+            if freq >= 3 and monetary >= avg_ltv and recency_days <= 45:
+                champions.append(c_info)
+            elif freq >= 2 and recency_days <= 60:
+                loyal.append(c_info)
+            elif freq == 1 and recency_days <= 30 and monetary >= avg_ltv:
+                potential.append(c_info)
+            elif freq == 1 and recency_days <= 30:
+                new_custs.append(c_info)
+            elif freq >= 2 and recency_days > 60:
+                at_risk.append(c_info)
+            else:
+                lost.append(c_info)
+
+        total_analyzed = len(cust_order_counts) or 1
+        rfm_segments = [
+            {
+                "id": "champions",
+                "name": "Champions / VIPs",
+                "count": len(champions),
+                "percentage": round(len(champions) / total_analyzed * 100, 1),
+                "badge_color": "emerald",
+                "strategy": "Reward loyalty with exclusive early offers and VIP concierge.",
+            },
+            {
+                "id": "loyal",
+                "name": "Loyal Customers",
+                "count": len(loyal),
+                "percentage": round(len(loyal) / total_analyzed * 100, 1),
+                "badge_color": "indigo",
+                "strategy": "Upsell higher-value products and encourage brand referrals.",
+            },
+            {
+                "id": "potential",
+                "name": "Potential Loyalists",
+                "count": len(potential),
+                "percentage": round(len(potential) / total_analyzed * 100, 1),
+                "badge_color": "sky",
+                "strategy": "Offer membership program or second-purchase discount incentive.",
+            },
+            {
+                "id": "new",
+                "name": "Recent New Customers",
+                "count": len(new_custs),
+                "percentage": round(len(new_custs) / total_analyzed * 100, 1),
+                "badge_color": "teal",
+                "strategy": "Send welcoming onboarding sequence and follow-up support.",
+            },
+            {
+                "id": "at_risk",
+                "name": "At Risk / Churning",
+                "count": len(at_risk),
+                "percentage": round(len(at_risk) / total_analyzed * 100, 1),
+                "badge_color": "amber",
+                "strategy": "Send win-back campaign with personalized reactivation discount.",
+            },
+            {
+                "id": "lost",
+                "name": "Dormant / Lost",
+                "count": len(lost),
+                "percentage": round(len(lost) / total_analyzed * 100, 1),
+                "badge_color": "slate",
+                "strategy": "Run seasonal re-engagement or low-cost automated email survey.",
+            },
+        ]
 
         # Top Customers
         sorted_by_ltv = sorted(cust_order_counts, key=lambda x: float(x.ltv or 0), reverse=True)[:10]
@@ -554,6 +644,10 @@ class AnalyticsService:
                 "churn_at_risk_count": len(churn_at_risk),
             },
             "frequency_cohorts": freq_cohorts,
+            "rfm_segmentation": {
+                "average_ltv": round(avg_ltv, 2),
+                "segments": rfm_segments,
+            },
             "top_customers": top_customers,
         }
 

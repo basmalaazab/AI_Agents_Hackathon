@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.auth import AppUser, AuthSession, UserChatMessage, Workspace, WorkspaceInvitation
+from app.models.audit_event import AuditEvent
 from app.models.data_source import DataSource
 
 router = APIRouter(prefix="/auth", tags=["User Authentication & Chat Persistence"])
@@ -168,7 +169,9 @@ def signup(req: SignUpRequest, db: Session = Depends(get_db)):
                    hashed_password=_hash_password(req.password), role="business_owner", workspace_id=workspace.id)
     db.add(user)
     db.flush()
+    db.add(AuditEvent(workspace_id=workspace.id, user_id=user.id, event_type="account_created", summary="Company workspace created"))
     token = _new_session(db, user)
+    db.add(AuditEvent(workspace_id=workspace.id, user_id=user.id, event_type="login", summary="Signed in"))
     db.commit()
     db.refresh(user)
     return _response(user, workspace, token)
@@ -186,6 +189,7 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
     if not workspace:
         raise HTTPException(status_code=401, detail="Company workspace is unavailable.")
     token = _new_session(db, user)
+    db.add(AuditEvent(workspace_id=workspace.id, user_id=user.id, event_type="login", summary="Signed in"))
     db.commit()
     return _response(user, workspace, token)
 
@@ -194,7 +198,12 @@ def login(req: LoginRequest, db: Session = Depends(get_db)):
 def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if authorization and authorization.startswith("Bearer "):
         digest = hashlib.sha256(authorization[7:].strip().encode()).hexdigest()
-        db.query(AuthSession).filter(AuthSession.token_hash == digest).delete()
+        session = db.query(AuthSession).filter(AuthSession.token_hash == digest).first()
+        if session:
+            user = db.query(AppUser).filter(AppUser.id == session.user_id).first()
+            if user:
+                db.add(AuditEvent(workspace_id=user.workspace_id, user_id=user.id, event_type="logout", summary="Signed out"))
+            db.delete(session)
         db.commit()
 
 
@@ -210,6 +219,17 @@ def get_chat_history(limit: int = 50, user: AppUser = Depends(get_current_user),
     return [{"id": str(m.id), "role": m.role, "content": m.content, "intent": m.intent,
              "executed_sql": m.executed_sql, "timestamp": m.created_at.strftime("%I:%M %p"),
              "metadata_json": m.metadata_json} for m in msgs]
+
+
+@router.get("/audit-events")
+def get_audit_events(limit: int = 50, user: AppUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    events = (db.query(AuditEvent, AppUser).outerjoin(AppUser, AppUser.id == AuditEvent.user_id)
+              .filter(AuditEvent.workspace_id == user.workspace_id)
+              .order_by(AuditEvent.created_at.desc()).limit(min(max(limit, 1), 100)).all())
+    return [{"id": str(event.id), "event_type": event.event_type, "summary": event.summary,
+             "created_at": event.created_at.isoformat(),
+             "user": (actor.full_name or actor.email) if actor else "Company member"}
+            for event, actor in events]
 
 
 @router.post("/chat-history", status_code=201)
@@ -272,6 +292,7 @@ def create_invitation(req: InvitationCreateRequest, user: AppUser = Depends(requ
     )
     db.add(invitation)
     db.flush()
+    db.add(AuditEvent(workspace_id=user.workspace_id, user_id=user.id, event_type="member_invited", summary=f"Invited {email} as {req.role}"))
     workspace = db.query(Workspace).filter(Workspace.id == user.workspace_id).first()
     from app.config import get_settings
     base_url = get_settings().frontend_base_url.rstrip("/")
@@ -317,6 +338,7 @@ def accept_invitation(req: InvitationAcceptRequest, db: Session = Depends(get_db
     invite.accepted_at = now
     db.add(user)
     db.flush()
+    db.add(AuditEvent(workspace_id=workspace.id, user_id=user.id, event_type="invitation_accepted", summary="Joined the company workspace"))
     token = _new_session(db, user)
     db.commit()
     db.refresh(user)
@@ -332,6 +354,7 @@ def update_member_role(member_id: uuid.UUID, req: RoleUpdateRequest,
     if member.role == "business_owner":
         raise HTTPException(status_code=400, detail="The company owner role cannot be changed here.")
     member.role = req.role
+    db.add(AuditEvent(workspace_id=actor.workspace_id, user_id=actor.id, event_type="role_changed", summary=f"Changed {member.email}'s role to {req.role}"))
     db.commit()
     return {"id": str(member.id), "role": member.role}
 
@@ -343,6 +366,7 @@ def remove_member(member_id: uuid.UUID, actor: AppUser = Depends(require_manager
         raise HTTPException(status_code=404, detail="Company member not found.")
     if member.id == actor.id or member.role == "business_owner":
         raise HTTPException(status_code=400, detail="The company owner cannot remove this account.")
+    db.add(AuditEvent(workspace_id=actor.workspace_id, user_id=actor.id, event_type="member_removed", summary=f"Removed {member.email} from the workspace"))
     db.delete(member)
     db.commit()
 
@@ -356,5 +380,6 @@ def revoke_invitation(invitation_id: uuid.UUID, actor: AppUser = Depends(require
     ).first()
     if not invite:
         raise HTTPException(status_code=404, detail="Pending invitation not found.")
+    db.add(AuditEvent(workspace_id=actor.workspace_id, user_id=actor.id, event_type="invitation_revoked", summary=f"Revoked invitation for {invite.invited_email}"))
     db.delete(invite)
     db.commit()

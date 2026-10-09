@@ -65,7 +65,7 @@ export const KPICards: React.FC<KPICardsProps> = ({ data, isLoading }) => {
       {cardConfig.map((c) => {
         const Icon = c.icon;
         const val = c.metric.current;
-        // The interface explains that currency conversion is not applied.
+        // Revenue metrics use stored USD-normalized amounts where a rate is available.
         const formattedVal = c.isCurrency
           ? val.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
           : val.toLocaleString();

@@ -146,25 +146,22 @@ class TestAIAgentAPI:
         assert len(data) > 0
         assert "mitigation_actions" in data[0]
 
-    def test_agent_safe_sql_success(self, test_client):
+    def test_agent_safe_sql_disabled(self, test_client):
         resp = test_client.post(
             "/api/v1/agent/sql",
             json={"query": "SELECT status, total_amount_usd FROM orders LIMIT 5"},
         )
-        assert resp.status_code == 200
+        assert resp.status_code == 403
         data = resp.json()
-        assert data["success"] is True
-        assert data["row_count"] >= 1
-        assert "total_amount_usd" in data["rows"][0]
+        assert "Direct SQL access is disabled" in data["detail"]
 
     def test_agent_unsafe_sql_blocked(self, test_client):
         resp = test_client.post(
             "/api/v1/agent/sql",
             json={"query": "DROP TABLE orders"},
         )
-        assert resp.status_code == 400
-        data = resp.json()
-        assert "Security violation" in data["detail"]
+        assert resp.status_code in (400, 403)
+
 
     def test_agent_suggestions(self, test_client):
         resp = test_client.get("/api/v1/agent/suggestions?date_range=30d")

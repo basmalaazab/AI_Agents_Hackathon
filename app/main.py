@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import health, sources, uploads, pipelines, data, analytics, agent, auth
 from app.config import get_settings
-from app.database import Base, engine, ensure_product_inventory_columns, ensure_workspace_columns
+from app.database import Base, engine, ensure_product_inventory_columns, ensure_workspace_columns, ensure_currency_columns
 from app.models import (  # noqa: F401 — register models before create_all
     Customer,
     DataQualityError,
@@ -22,6 +22,7 @@ from app.models import (  # noqa: F401 — register models before create_all
     OrderItem,
     Product,
     RawRecord,
+    AuditEvent,
 )
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     ensure_workspace_columns()
     ensure_product_inventory_columns()
+    ensure_currency_columns()
     start_scheduler()
     yield
     stop_scheduler()

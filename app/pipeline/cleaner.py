@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -31,6 +33,72 @@ def clean_amount(value: Any) -> Decimal | None:
         return Decimal(cleaned)
     except InvalidOperation:
         return None
+
+
+EXCHANGE_RATES_TO_USD: dict[str, Decimal] = {
+    "USD": Decimal("1.0"),
+    "EUR": Decimal("1.08"),
+    "GBP": Decimal("1.27"),
+    "EGP": Decimal("0.021"),
+    "SAR": Decimal("0.267"),
+    "AED": Decimal("0.272"),
+    "KWD": Decimal("3.26"),
+    "CAD": Decimal("0.74"),
+    "AUD": Decimal("0.66"),
+    "JPY": Decimal("0.0067"),
+}
+_exchange_rate_refresh_after = 0.0
+_exchange_rate_lock = threading.Lock()
+
+
+def _refresh_exchange_rates() -> None:
+    """Refresh USD base rates periodically; keep references available while offline."""
+    global _exchange_rate_refresh_after
+    now = time.monotonic()
+    if now < _exchange_rate_refresh_after:
+        return
+    with _exchange_rate_lock:
+        now = time.monotonic()
+        if now < _exchange_rate_refresh_after:
+            return
+        # Avoid hammering the provider if this runtime has no outbound network.
+        _exchange_rate_refresh_after = now + 24 * 60 * 60
+        try:
+            import httpx
+            response = httpx.get("https://open.er-api.com/v6/latest/USD", timeout=2.5)
+            response.raise_for_status()
+            payload = response.json()
+            if payload.get("result") != "success":
+                return
+            rates = payload.get("rates", {})
+            for currency, units_per_usd in rates.items():
+                try:
+                    units = Decimal(str(units_per_usd))
+                    if units > 0:
+                        EXCHANGE_RATES_TO_USD[currency.upper()] = Decimal("1") / units
+                except Exception:
+                    continue
+        except Exception as exc:
+            logger.info("Using bundled exchange-rate references (%s)", type(exc).__name__)
+
+
+def convert_to_usd(amount: Any, currency: str = "USD") -> Decimal | None:
+    """Convert amount in given currency to USD using refreshed or bundled rates."""
+    if amount is None:
+        return None
+    try:
+        dec_amount = Decimal(str(amount))
+    except Exception:
+        return None
+    curr_upper = (currency or "USD").upper().strip()
+    if curr_upper != "USD":
+        _refresh_exchange_rates()
+    rate = EXCHANGE_RATES_TO_USD.get(curr_upper)
+    if rate is None:
+        logger.warning("No USD conversion rate configured for currency %s", curr_upper)
+        return None
+    return round(dec_amount * rate, 2)
+
 
 
 def clean_date(value: Any) -> pd.Timestamp | None:
@@ -88,8 +156,13 @@ def clean_orders(df: pd.DataFrame) -> pd.DataFrame:
         clean_currency_code
     )
 
-    # Preserve only actual USD as USD; never label another currency as USD.
-    df["total_amount_usd"] = df["total_amount"].where(df["currency"] == "USD")
+    # Convert total amount to USD using exchange rates
+    def _convert_row(row):
+        amt = row.get("total_amount")
+        curr = row.get("currency") or "USD"
+        return convert_to_usd(amt, curr)
+
+    df["total_amount_usd"] = df.apply(_convert_row, axis=1)
 
     # Optional fields
     if "customer_id" in df.columns:

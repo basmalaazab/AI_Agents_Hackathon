@@ -18,6 +18,7 @@ from app.models.customer import Customer
 from app.models.order import Order
 from app.models.order_item import OrderItem
 from app.models.product import Product
+from app.pipeline.cleaner import convert_to_usd
 
 logger = logging.getLogger(__name__)
 
@@ -95,8 +96,7 @@ def transform_orders(
             currency=row.get("currency", "USD") or "USD",
             total_amount_usd=(
                 _decimal(row, "total_amount_usd")
-                if (row.get("currency", "USD") or "USD") == "USD"
-                else None
+                or convert_to_usd(_decimal(row, "total_amount"), str(row.get("currency", "USD") or "USD"))
             ),
         )
         orders.append(o)
@@ -132,6 +132,7 @@ def transform_order_items(
             unit_price=unit_price,
             line_total=line_total,
             currency=row.get("currency", "USD") or "USD",
+            line_total_usd=convert_to_usd(line_total, str(row.get("currency", "USD") or "USD")),
         )
         items.append(item)
     return items

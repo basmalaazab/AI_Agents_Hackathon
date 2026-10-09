@@ -18,8 +18,8 @@ class DataSource(Base):
     )
     name: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True
+    workspace_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=True, index=True
     )
     source_type: Mapped[str] = mapped_column(
         String(50), nullable=False

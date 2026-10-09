@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Database, Upload, Play, RefreshCw, Plus, CheckCircle2, AlertTriangle, ShieldCheck, Clock3 } from "lucide-react";
+import { Database, Upload, Play, RefreshCw, Plus, CheckCircle2, AlertTriangle, ShieldCheck, Clock3, CircleHelp, PlugZap } from "lucide-react";
 import {
   createDataSource,
   fetchPipelineSummary,
@@ -31,6 +31,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,17 +57,28 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
     .filter(run => run.data_source_id === sourceId)
     .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0];
 
+  const sourceTypeLabel = (type: string) => ({
+    csv: "CSV file",
+    stripe: "Stripe · test mode",
+    hubspot: "HubSpot",
+    mock_api: "Sample API",
+    api: "API connection",
+  }[type] ?? type.replaceAll("_", " "));
+
   const handleSyncOne = async (source: DataSourceInfo) => {
     setSyncingSourceId(source.id); setError(null); setMessage(null);
     try {
       const types: Array<"customer" | "product" | "order"> = source.source_type === "stripe" ? ["customer", "product", "order"] : ["customer", "product", "order"];
-      let fetched = 0, inserted = 0, invalid = 0;
+      let inserted = 0, invalid = 0, duplicate = 0;
       for (const type of types) {
         const run = await triggerPipeline(source.id, type);
         if (run.status === "failed") throw new Error(run.error_message || `${source.display_name || source.name} sync failed for ${type}.`);
-        fetched += run.records_fetched; inserted += run.records_inserted; invalid += run.records_invalid;
+        inserted += run.records_inserted; invalid += run.records_invalid; duplicate += run.records_duplicate;
       }
-      setMessage(`${source.display_name || source.name} synced: ${fetched} records fetched, ${inserted} added, ${invalid} flagged for review.`);
+      const label = source.display_name || source.name;
+      setMessage(inserted > 0
+        ? `${label} is up to date: ${inserted} new records added${duplicate ? `, ${duplicate} already imported` : ""}${invalid ? `, ${invalid} need review` : ""}.`
+        : `No new records found for ${label}${duplicate ? `; ${duplicate} were already imported` : ""}${invalid ? `; ${invalid} need review` : "."}`);
       setLatestRuns(await fetchPipelineRuns());
       await onSourcesChanged();
     } catch (err) { setError(err instanceof Error ? err.message : `${source.display_name || source.name} sync failed.`); setLatestRuns(await fetchPipelineRuns().catch(() => latestRuns)); }
@@ -106,9 +118,9 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
     setMessage(null);
     try {
       const result = await uploadCsvFile(file, recordType, sourceName.trim() || "csv_import");
-      setMessage(
-        `Processed ${result.records_fetched} ${recordType} rows — ${result.records_inserted} inserted, ${result.records_duplicate} duplicates skipped, ${result.records_invalid} invalid rows flagged.`
-      );
+      setMessage(result.records_inserted > 0
+        ? `Imported ${result.records_inserted} new ${recordType} record${result.records_inserted === 1 ? "" : "s"}${result.records_duplicate ? `; skipped ${result.records_duplicate} already imported` : ""}${result.records_invalid ? `; ${result.records_invalid} need review` : ""}.`
+        : `No new ${recordType} records found${result.records_duplicate ? `; ${result.records_duplicate} were already imported` : ""}${result.records_invalid ? `; ${result.records_invalid} need review` : "."}`);
       setFile(null);
       await onSourcesChanged();
     } catch (err: unknown) {
@@ -145,9 +157,9 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
           totals.invalid += run.records_invalid;
         }
       }
-      setMessage(
-        `Sync completed for ${syncableSources.length} source(s): fetched ${totals.fetched}, inserted ${totals.inserted}, ${totals.duplicate} duplicates, ${totals.invalid} invalid.`
-      );
+      setMessage(totals.inserted > 0
+        ? `Updated ${syncableSources.length} platform${syncableSources.length === 1 ? "" : "s"}: ${totals.inserted} new records added${totals.duplicate ? `, ${totals.duplicate} already imported` : ""}${totals.invalid ? `, ${totals.invalid} need review` : ""}.`
+        : `No new records found. Your data is already up to date${totals.duplicate ? `; ${totals.duplicate} were already imported` : ""}${totals.invalid ? `; ${totals.invalid} need review` : ""}.`);
       await onSourcesChanged();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Pipeline sync failed");
@@ -157,39 +169,41 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
   };
 
   const handleRefreshSummary = async () => {
+    setIsRefreshing(true);
+    setError(null);
     try {
+      const [stripeStatus, runs] = await Promise.all([
+        fetchStripeReadiness(),
+        fetchPipelineRuns(),
+      ]);
+      setStripeConfigured(stripeStatus.stripe.configured);
+      setStripeSetupMessage(stripeStatus.stripe.message);
+      setLatestRuns(runs);
       await fetchPipelineSummary();
       await onSourcesChanged();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not refresh pipeline status");
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
   return (
     <section aria-labelledby="sources-heading">
-      {readOnly && <div className="team-feedback" style={{ marginBottom: 16, borderColor: "var(--card-border)", color: "var(--text-secondary)" }}>You have viewer access. A manager can register sources, upload data, or start a sync.</div>}
-      {/* Notice Banner */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "12px",
-          padding: "14px 18px",
-          borderRadius: "12px",
-          background: "var(--card-subtle-bg)",
-          border: "1px solid var(--card-border)",
-          marginBottom: "20px",
-          fontSize: "0.85rem",
-          color: "var(--text-primary)",
-        }}
-        role="note"
-      >
-        <ShieldCheck size={18} color="var(--accent-indigo)" style={{ flexShrink: 0, marginTop: "2px" }} aria-hidden="true" />
+      <div className="sources-page-intro">
         <div>
-          <strong>Stripe connection:</strong> {stripeSetupMessage} Keep the key in the backend environment, never in this browser.
-          A successful sync validates access and writes a timestamped pipeline run. Imported records are validated and duplicates are skipped.
+          <span className="sources-eyebrow">YOUR WORKSPACE</span>
+          <h2 id="sources-heading">Bring your business data together</h2>
+          <p>Upload a CSV or sync a connected platform. Your dashboard updates after each import.</p>
         </div>
+        {!readOnly && <span className="sources-step"><span>1</span> Add data <b>→</b> <span>2</span> Review insights</span>}
       </div>
+      {readOnly && <div className="sources-viewer-note">You can explore the company data. Ask a manager to upload files or sync a platform.</div>}
+
+      <details className="stripe-setup-help">
+        <summary><ShieldCheck size={16} /> Stripe connection <span className={`source-setup-status ${stripeConfigured ? "ready" : "needs-setup"}`}>{stripeConfigured ? "Ready to sync" : "Setup needed"}</span></summary>
+        <p>{stripeSetupMessage} Keep the secret key in the backend environment; never enter it in this page. Stripe is currently in test mode.</p>
+      </details>
 
       {/* Summary Cards */}
       {summary && (
@@ -202,41 +216,39 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
           }}
         >
           {[
-            ["Registered Sources", sources.length],
-            ["Pipeline Runs", summary.total_runs],
-            ["Total Orders", summary.total_orders],
-            ["Total Customers", summary.total_customers],
-            ["Total Products", summary.total_products],
-            ["Quality Issues", summary.total_quality_errors],
+            ["Connected sources", sources.length],
+            ["Orders", summary.total_orders],
+            ["Products & customers", summary.total_products + summary.total_customers],
+            ["Needs review", summary.total_quality_errors],
           ].map(([label, value]) => (
             <div
               key={String(label)}
-              className="glass-card"
-              style={{ padding: "14px 16px" }}
+              className="glass-card source-stat"
             >
               <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{label}</div>
               <div style={{ fontSize: "1.25rem", fontWeight: 700, marginTop: "4px", color: "var(--text-primary)" }}>
                 {value}
               </div>
+              {label === "Needs review" && <small>{Number(value) === 0 ? "No data issues" : "Check imported rows"}</small>}
             </div>
           ))}
         </div>
       )}
 
       {/* Registered Sources List */}
-      <div className="glass-card" style={{ padding: "20px 24px", marginBottom: "20px" }}>
+      <div className="glass-card sources-connected-card" style={{ padding: "20px 24px", marginBottom: "20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "10px" }}>
           <div>
-            <h3 id="sources-heading" style={{ fontSize: "1rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
-              <Database size={18} color="var(--accent-indigo)" /> Registered data sources
+            <h3 style={{ fontSize: "1rem", fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: "8px" }}>
+              <Database size={18} color="var(--accent-indigo)" /> Your connections
             </h3>
             <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", margin: "4px 0 0" }}>
-              Sources registered for import or synchronization.
+              See what is connected and when it last updated.
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
-            <button className="btn btn-secondary" onClick={handleRefreshSummary} style={{ fontSize: "0.8rem", padding: "7px 12px" }}>
-              <RefreshCw size={14} /> Refresh
+            <button className="btn btn-secondary" onClick={handleRefreshSummary} disabled={isRefreshing} style={{ fontSize: "0.8rem", padding: "7px 12px" }}>
+              <RefreshCw size={14} /> {isRefreshing ? "Refreshing…" : "Refresh"}
             </button>
             <button
               className="btn btn-primary"
@@ -245,7 +257,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
               style={{ fontSize: "0.8rem", padding: "7px 14px", background: "var(--accent-indigo)", color: "var(--accent-on-primary)" }}
             >
               <Play size={14} />
-              {isSyncing ? "Syncing…" : "Sync enabled sources"}
+              {isSyncing ? "Updating…" : "Sync all platforms"}
             </button>
           </div>
         </div>
@@ -253,7 +265,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
         <div style={{ display: "grid", gap: "10px" }}>
           {sources.length === 0 ? (
             <div style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-              No sources registered yet. Add a platform or import a CSV file below.
+              No data sources yet. Start by uploading a CSV file below.
             </div>
           ) : (
             sources.map((s) => (
@@ -273,38 +285,41 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
               >
                 <div>
                   <strong style={{ fontSize: "0.9rem" }}>{s.display_name || s.name}</strong>
-                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                    Platform: <code style={{ fontSize: "0.72rem" }}>{s.source_type}</code>
-                    {s.description ? ` · ${s.description}` : ""}
-                    {getLatestRun(s.id) && <span style={{ display: "block", marginTop: 5, color: getLatestRun(s.id)?.status === "failed" ? "var(--badge-red-text)" : "var(--text-secondary)" }}><Clock3 size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />Last sync {new Date(getLatestRun(s.id)!.started_at).toLocaleString()} · {getLatestRun(s.id)!.status}{getLatestRun(s.id)?.status === "failed" ? ` · ${getLatestRun(s.id)?.error_message ?? "Check connector settings"}` : ` · ${getLatestRun(s.id)?.records_inserted ?? 0} records added`}</span>}
+                  <div className="source-meta">
+                    <span>{sourceTypeLabel(s.source_type)}</span>
+                    {s.description ? <span>{s.description}</span> : null}
+                    {getLatestRun(s.id) && <span className={`source-last-run ${getLatestRun(s.id)?.status === "failed" ? "failed" : ""}`}><Clock3 size={12} aria-hidden="true" />{getLatestRun(s.id)?.status === "failed" ? `Update failed · ${getLatestRun(s.id)?.error_message ?? "Check connection settings"}` : `Updated ${new Date(getLatestRun(s.id)!.started_at).toLocaleString()} · ${getLatestRun(s.id)?.records_inserted ?? 0} new`}</span>}
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <span className="badge badge-positive" style={{ fontSize: "0.72rem" }}>
-                    ● {s.is_active ? "Enabled" : "Paused"}
+                <div className="source-row-actions">
+                  <span className={`source-status-pill ${s.is_active ? "active" : "paused"}`}>
+                    <span aria-hidden="true">●</span> {s.is_active ? "Active" : "Paused"}
                   </span>
-                  {s.source_type === "stripe" && <button className="btn btn-secondary" onClick={() => void handleSyncOne(s)} disabled={readOnly || !stripeConfigured || syncingSourceId === s.id} title={readOnly ? "Manager access required" : !stripeConfigured ? stripeSetupMessage : "Sync customers, products and payments"} style={{ fontSize: ".74rem", padding: "7px 10px" }}><RefreshCw size={13} />{syncingSourceId === s.id ? "Syncing…" : "Sync Stripe"}</button>}
+                  {s.source_type === "stripe" && <button className="btn btn-secondary" onClick={() => void handleSyncOne(s)} disabled={readOnly || !stripeConfigured || syncingSourceId === s.id} title={readOnly ? "Manager access required" : !stripeConfigured ? stripeSetupMessage : "Sync customers, products and payments"} style={{ fontSize: ".74rem", padding: "7px 10px" }}><RefreshCw size={13} />{syncingSourceId === s.id ? "Updating…" : "Sync now"}</button>}
                 </div>
               </div>
             ))
           )}
         </div>
+        {sources.filter((source) => source.source_type === "stripe").length > 1 && (
+          <div className="stripe-duplicate-note"><AlertTriangle size={15} aria-hidden="true" /><span>There are multiple Stripe entries. Each uses the workspace Stripe key, so keep one entry per Stripe account to avoid syncing the same payments more than once.</span></div>
+        )}
       </div>
 
       {/* CSV Upload & New Integration Actions */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
         {/* CSV Import */}
-        <div className="glass-card" style={{ padding: "20px 24px" }}>
+        <div className="glass-card source-action-card primary" style={{ padding: "20px 24px" }}>
           <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Upload size={16} color="var(--accent-indigo)" /> CSV File Ingestion
+            <Upload size={16} color="var(--accent-indigo)" /> Upload a CSV file
           </h4>
           <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
-            Import transactions, customers, or products. Product CSVs can include `stock_quantity` and `reorder_point` to enable stock-risk estimates. Use the same source name as the sales data to match products with sales.
+            Add sales, customer profiles, or products. Include stock quantities in product files to see low-stock alerts.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div>
               <label htmlFor="csv-record-type" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Record Type
+                What does this file contain?
               </label>
               <select
                 id="csv-record-type"
@@ -321,7 +336,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
             </div>
             <div>
               <label htmlFor="csv-source-name" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Source name (optional)
+                Store or platform name <span className="field-optional">(optional)</span>
               </label>
               <input
                 id="csv-source-name"
@@ -335,7 +350,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
             </div>
             <div>
               <label htmlFor="csv-file" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                CSV File
+                Choose a CSV file
               </label>
               <input
                 id="csv-file"
@@ -353,23 +368,23 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
               style={{ width: "100%", justifyContent: "center", background: "var(--accent-indigo)", color: "var(--accent-on-primary)" }}
             >
               <Upload size={15} />
-              {isUploading ? "Validating & Ingesting…" : "Upload & Ingest CSV"}
+              {isUploading ? "Importing your file…" : "Upload and import"}
             </button>
           </div>
         </div>
 
         {/* Register Platform Integration */}
-        <div className="glass-card" style={{ padding: "20px 24px" }}>
+        <div className="glass-card source-action-card" style={{ padding: "20px 24px" }}>
           <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
-            <Plus size={16} color="var(--accent-indigo)" /> Connect New Integration
+            <PlugZap size={16} color="var(--accent-indigo)" /> Connect a platform
           </h4>
           <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "16px" }}>
-            Add an external platform channel. Configure its credentials in the backend environment before starting a live sync.
+            Connect Stripe or HubSpot. Your workspace administrator must add credentials before the first sync.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <div>
               <label htmlFor="integration-platform" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Platform Type
+                Choose a platform
               </label>
               <select
                 id="integration-platform"
@@ -385,7 +400,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
             </div>
             <div>
               <label htmlFor="integration-name" style={{ fontSize: "0.78rem", color: "var(--text-secondary)", display: "block", marginBottom: "4px" }}>
-                Integration Identifier
+                Connection name
               </label>
               <input
                 id="integration-name"
@@ -406,7 +421,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
                 borderRadius: "8px",
               }}
             >
-            ℹ️ Add the required API key to the backend environment, then run a sync. Available records depend on the connector and your account permissions.
+              <><CircleHelp size={15} aria-hidden="true" /> Secret keys stay on the server. Never paste them into this page.</>
             </div>
             <button
               className="btn btn-secondary"
@@ -415,7 +430,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
               style={{ width: "100%", justifyContent: "center" }}
             >
               <Plus size={15} />
-              {isRegistering ? "Registering…" : "Register source"}
+              {isRegistering ? "Adding…" : "Add platform"}
             </button>
           </div>
         </div>

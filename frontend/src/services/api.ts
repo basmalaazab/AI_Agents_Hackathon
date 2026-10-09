@@ -46,6 +46,14 @@ export interface PipelineRunInfo extends IngestionRunResult {
   record_type?: string;
 }
 
+export interface AuditEventInfo { id: string; event_type: string; summary: string; created_at: string; user: string }
+
+export async function fetchAuditEvents(limit = 50): Promise<AuditEventInfo[]> {
+  const res = await authenticatedFetch(`${API_V1}/auth/audit-events?limit=${limit}`);
+  if (!res.ok) throw new Error("Could not load account activity");
+  return res.json();
+}
+
 export async function fetchStripeReadiness(): Promise<{ stripe: { configured: boolean; message: string } }> {
   const res = await authenticatedFetch(`${API_V1}/sources/integration-readiness`);
   if (!res.ok) throw new Error("Could not check Stripe configuration");
@@ -166,6 +174,14 @@ export function getExportCSVUrl(
   if (endDate) params.append("end_date", endDate);
 
   return `${API_BASE_URL}/export/csv?${params.toString()}`;
+}
+
+export function getExportXLSXUrl(dateRange = "30d", sourceName?: string, startDate?: string, endDate?: string): string {
+  const params = new URLSearchParams({ date_range: dateRange });
+  if (sourceName) params.append("source_name", sourceName);
+  if (startDate) params.append("start_date", startDate);
+  if (endDate) params.append("end_date", endDate);
+  return `${API_BASE_URL}/export/xlsx?${params.toString()}`;
 }
 
 export async function fetchDataSources(): Promise<DataSourceInfo[]> {

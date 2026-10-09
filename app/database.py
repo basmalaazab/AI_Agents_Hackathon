@@ -40,7 +40,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def _apply_workspace_scope(execute_state):
     """Apply workspace isolation to ORM reads in authenticated requests."""
     db = execute_state.session
-    if not execute_state.is_select or "workspace_id" not in db.info:
+    if not execute_state.is_select or "workspace_id" not in db.info or db.info.get("skip_workspace_scope"):
         return
     from app.models import (Customer, DataQualityError, DataSource, IngestionRun,
                             Order, OrderItem, Product, RawRecord)
@@ -103,6 +103,28 @@ def ensure_product_inventory_columns() -> None:
         for column in ("stock_quantity", "reorder_point"):
             if column not in existing:
                 connection.execute(text(f"ALTER TABLE products ADD COLUMN {column} INTEGER"))
+
+
+def ensure_currency_columns() -> None:
+    """Add normalized USD amount to order items in existing installations."""
+    inspector = inspect(engine)
+    if "order_items" not in inspector.get_table_names():
+        return
+    existing = {column["name"] for column in inspector.get_columns("order_items")}
+    added = "line_total_usd" not in existing
+    if added:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE order_items ADD COLUMN line_total_usd NUMERIC(12, 2)"))
+    if added:
+        from app.models.order import Order
+        from app.models.order_item import OrderItem
+        from app.pipeline.cleaner import convert_to_usd
+        with SessionLocal() as db:
+            for order in db.query(Order).all():
+                order.total_amount_usd = convert_to_usd(order.total_amount, order.currency)
+            for item in db.query(OrderItem).all():
+                item.line_total_usd = convert_to_usd(item.line_total, item.currency)
+            db.commit()
 
 
 def ensure_workspace_columns() -> None:

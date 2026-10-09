@@ -14,12 +14,11 @@ import {
   ChevronUp,
   RefreshCw,
   ShieldCheck,
-  FileText,
   Play,
 } from "lucide-react";
 
 import {
-  askAIAgent,
+  streamAIAgent,
   fetchRecommendations,
   fetchDiagnoses,
   executeSafeSQL,
@@ -112,7 +111,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
           {
             id: "welcome-msg",
             role: "assistant",
-            content: `Hello! I'm your AI Business Analyst.\n\nI can answer questions using your imported business data.\n\n- **Period:** ${dateRange}\n- **Sources:** ${sourceScope}\n- **Revenue (USD):** ${typeof rev === "number" ? rev.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "Not available"}\n- **Orders:** ${typeof ords === "number" ? ords.toLocaleString() : "Not available"}\n\nAsk about sales, customers, products, or trends. Orders in other currencies are excluded from revenue because exchange-rate conversion is not configured.`,
+            content: `Hello! I'm your AI Business Analyst.\n\nI can answer questions using your imported business data.\n\n- **Period:** ${dateRange}\n- **Sources:** ${sourceScope}\n- **Revenue (USD):** ${typeof rev === "number" ? rev.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "Not available"}\n- **Orders:** ${typeof ords === "number" ? ords.toLocaleString() : "Not available"}\n\nAsk about sales, customers, products, or trends. Orders with unsupported currencies are excluded from USD revenue totals.`,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             suggested_followups: [
               "What is our total revenue and sales trend?",
@@ -186,26 +185,75 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
     setInputValue("");
     setIsSending(true);
 
+    const aiMsgId = `ai-${Date.now()}`;
+    const initialAiMsg: ChatMessage = {
+      id: aiMsgId,
+      role: "assistant",
+      content: "...",
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    };
+    setMessages((prev) => [...prev, initialAiMsg]);
+
     try {
       const history = messages.slice(-4).map((m) => ({ role: m.role, content: m.content }));
-      const res = await askAIAgent(query, dateRange, sourceName, history, true);
+      let accumulatedContent = "";
 
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: res.answer,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        intent: res.intent,
-        model_used: res.model_used,
-        executed_sql: res.executed_sql,
-        sql_results: res.sql_results,
-        metrics_snapshot: res.metrics_snapshot,
-        suggested_followups: res.suggested_followups,
-        analysis_evidence: res.analysis_evidence,
-      };
+      const res = await streamAIAgent(
+        query,
+        dateRange,
+        sourceName,
+        history,
+        (chunk, modelUsed) => {
+          accumulatedContent += chunk;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? { ...m, content: accumulatedContent, model_used: modelUsed || m.model_used }
+                : m
+            )
+          );
+        },
+        (finalRes) => {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    content: finalRes.answer,
+                    intent: finalRes.intent,
+                    model_used: finalRes.model_used,
+                    executed_sql: finalRes.executed_sql,
+                    sql_results: finalRes.sql_results,
+                    metrics_snapshot: finalRes.metrics_snapshot,
+                    suggested_followups: finalRes.suggested_followups,
+                    analysis_evidence: finalRes.analysis_evidence,
+                  }
+                : m
+            )
+          );
+        }
+      );
 
-      setMessages((prev) => [...prev, aiMsg]);
+      // Ensure final state
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                content: res.answer,
+                intent: res.intent,
+                model_used: res.model_used,
+                executed_sql: res.executed_sql,
+                sql_results: res.sql_results,
+                metrics_snapshot: res.metrics_snapshot,
+                suggested_followups: res.suggested_followups,
+                analysis_evidence: res.analysis_evidence,
+              }
+            : m
+        )
+      );
     } catch (err: any) {
+      setMessages((prev) => prev.filter((m) => m.id !== aiMsgId));
       const errorMsg: ChatMessage = {
         id: `ai-err-${Date.now()}`,
         role: "assistant",
@@ -372,7 +420,7 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             }}
           >
             <Sparkles size={16} color={activeTab === "chat" ? "var(--accent-indigo)" : "currentColor"} />
-            AI Analyst Chat
+            Chat
           </button>
 
           <button
@@ -412,49 +460,9 @@ export const AIChatCopilotModal: React.FC<AIChatCopilotModalProps> = ({
             }}
           >
             <AlertTriangle size={16} color={activeTab === "diagnose" ? "var(--accent-rose)" : "currentColor"} />
-            Anomaly Diagnosis
+            Alerts & diagnosis
           </button>
 
-          <button
-            onClick={() => setActiveTab("sql")}
-            style={{
-              padding: "12px 16px",
-              background: "transparent",
-              border: "none",
-              borderBottom: activeTab === "sql" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "sql" ? "var(--accent-indigo)" : "var(--text-secondary)",
-              fontWeight: activeTab === "sql" ? 600 : 500,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <Database size={16} color={activeTab === "sql" ? "var(--accent-teal)" : "currentColor"} />
-            SQL access
-          </button>
-
-          <button
-            onClick={() => setActiveTab("raw")}
-            style={{
-              padding: "12px 16px",
-              background: "transparent",
-              border: "none",
-              borderBottom: activeTab === "raw" ? "2px solid var(--accent-indigo)" : "2px solid transparent",
-              color: activeTab === "raw" ? "var(--accent-indigo)" : "var(--text-secondary)",
-              fontWeight: activeTab === "raw" ? 600 : 500,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              marginLeft: "auto",
-            }}
-          >
-            <FileText size={16} color={activeTab === "raw" ? "var(--accent-indigo)" : "currentColor"} />
-            Analytics Payload
-          </button>
         </div>
 
         {/* Tab 1: AI Analyst Chat */}

@@ -1,71 +1,104 @@
-# Database and API Reference
+# Database and API reference
 
-This document describes the data model and analytics endpoints currently used by Clearview BI. The database is managed through SQLAlchemy models; the exact database URL is configured with `DATABASE_URL`.
+Clearview BI uses SQLAlchemy models and a database configured through `DATABASE_URL`. The API is mounted below `/api/v1`; interactive OpenAPI documentation is available at `/docs` while the backend is running. Business endpoints require a bearer session token returned by sign-up or login.
 
-## Core tables
+## Data model
 
-| Table | Purpose | Important fields |
+| Table | Purpose | Key fields and behavior |
 | --- | --- | --- |
-| `customers` | Customer records from each source | `source_name`, `external_id`, contact and location fields |
-| `orders` | Sales orders and their status | `source_name`, `external_id`, `customer_id`, `order_date`, `status`, `total_amount`, `currency`, `total_amount_usd` |
-| `order_items` | Products and quantities on an order | `order_id`, `product_id`, `product_name`, `sku`, `quantity`, `unit_price`, `line_total`, `currency` |
-| `products` | Product catalog and optional inventory balances | `source_name`, `external_id`, `name`, `sku`, `category`, `unit_price`, `currency`, `stock_quantity`, `reorder_point` |
-| `data_sources` | Registered import or connector sources | `name`, `source_type`, `is_active` |
-| `ingestion_runs` | Pipeline run status and record counts | source, status, timestamps, fetched/inserted/duplicate/invalid counts |
-| `raw_records` | Original ingested payloads for audit/debugging | run, source, record type, raw payload |
-| `data_quality_errors` | Validation failures retained for review | run, record type, error details, raw payload |
-| `workspaces` | Company data boundary | company name, workspace ID |
-| `app_users` | Company members and assigned role | email, role, workspace ID, password hash |
-| `auth_sessions` | Revocable, expiring login sessions | user ID, token hash, expiration |
-| `workspace_invitations` | Single-use invitations that expire after seven days | workspace, email, role, token hash, expiration, acceptance time |
+| `workspaces` | Company boundary | Company name and workspace ID |
+| `app_users` | Company members | Email, full name, role, password hash and workspace ID |
+| `auth_sessions` | Login sessions | Hashed bearer token and expiration |
+| `workspace_invitations` | Pending team invites | Workspace, email, role, hashed one-time token and seven-day expiration |
+| `audit_events` | Company account history | Workspace, optional user, event type, summary and timestamp |
+| `data_sources` | Import and connector registry | Workspace, source name/type, display name and active flag |
+| `customers` | Customer profiles | Source-scoped external identity and contact/profile fields |
+| `orders` | Order attempts and sales | Source-scoped external ID, customer, date, status, original amount/currency and normalized USD amount |
+| `order_items` | Products sold on an order | Order/product references, product snapshot, quantity, original line amount/currency and normalized USD amount |
+| `products` | Catalog and optional inventory | Source-scoped external ID, name, SKU, category, price/currency, stock and reorder point |
+| `ingestion_runs` | Pipeline audit trail | Source, record type, status, timestamps and fetched/valid/inserted/duplicate/invalid counts |
+| `raw_records` | Ingested source payloads | Run, source, record type and original payload |
+| `data_quality_errors` | Rows that failed validation | Run, record type, error details and source payload |
+| `user_chat_messages` | Persisted analyst conversation | User, message, intent and optional result metadata |
 
-Orders and products are unique by `(source_name, external_id)`. A customer appearing in multiple source systems is not automatically matched to a single identity. `customer_id` on an order may be empty if its customer record was not ingested.
+Orders and products are deduplicated by source and external ID; source identities are not automatically matched across different platforms. Order/customer linkage may be absent if the related customer was not imported.
 
-## Currency and inventory limitations
+## Authentication and workspace isolation
 
-The pipeline does not perform exchange-rate conversion. Only USD orders are included in revenue totals; orders in other currencies are excluded and surfaced in the AI context. Existing databases clear the incorrectly inferred USD value on non-USD orders at startup.
+- `POST /auth/signup` creates a company owner and workspace. On an existing database, the first account retains the seeded demo workspace; later signups receive isolated workspaces.
+- `POST /auth/login` returns a bearer token; use `Authorization: Bearer <token>` for authenticated routes. Sessions expire after 14 days. `POST /auth/logout` revokes the current token.
+- Managers can invite users as managers or viewers, change roles, remove members and revoke invitations. Invitations expire after seven days; SMTP is optional.
+- Request dependencies scope ORM data access to the current user's workspace. Viewer access is read-only for imports and source changes.
+- Direct SQL execution is disabled for workspace accounts; the `/agent/sql` endpoint returns a forbidden response. This prevents unfiltered ad-hoc SQL from bypassing application-level tenant scope.
 
-Product CSV imports accept optional `stock_quantity` and `reorder_point` fields (also common aliases such as `inventory_quantity`, `quantity_on_hand`, and `low_stock_threshold`). The inventory-risk estimate uses the last 30 days of linked sales and flags zero stock, stock at/below reorder point, or estimated cover of 14 days or less. It does not account for reserved stock, supplier lead time, or safety stock.
+## Currency normalization
 
-The analyst can prepare a review-only restock draft with `POST /api/v1/agent/inventory-reorder-draft`. The request supplies the product, source, supplier lead time, and extra cover days. The target stock is the greater of `ceil(last-30-day average daily sales × (lead time + extra cover))` and the imported reorder point; the suggested quantity is `max(target stock − current stock, 0)`. If there are no eligible sales, the imported reorder point can only restore stock to that point; without either sales or a reorder point, the API reports insufficient data. Drafts are not saved and no purchase order is submitted.
+`orders.total_amount` and `order_items.line_total` retain original amounts and ISO currency codes. `total_amount_usd` and `line_total_usd` hold normalized values for analytics. Rates are refreshed from the USD-based ExchangeRate-API endpoint at most once daily, with bundled reference rates retained when the service is unavailable. USD totals use the stored conversion at ingestion/backfill time; this is not a transaction-date FX ledger. If no rate is available, the normalized value stays empty, and the order is counted as unconverted rather than assumed to be USD. The dashboard and AI context disclose exclusions.
 
-## Analytics endpoints
+## Inventory and reorder drafts
 
-All endpoints are under `/api/v1` and accept date/source filters where applicable.
+Product imports may include `stock_quantity` and `reorder_point`, including common aliases such as `inventory_quantity`, `quantity_on_hand` and `low_stock_threshold`. Risk flags cover zero stock, stock at/below reorder point, or estimated cover of 14 days or less. Days-of-cover estimates use the latest 30 days of linked sales and do not model supplier lead time, reserved stock or safety stock.
 
-| Endpoint | Purpose |
+`POST /agent/inventory-reorder-draft` takes `product_name`, optional `product_sku`, `source_name`, `supplier_lead_time_days` and optional `target_cover_days` (default 14). It calculates a suggested quantity from recent average daily sales and the requested cover period, subject to the imported reorder point. If evidence is insufficient, the result says so. The draft is a response only; it is not persisted and never places an order.
+
+## AI answer and evidence flow
+
+The built-in analytics logic prepares the baseline metrics and evidence before any language model is called. If `OPENAI_API_KEY` is set, OpenAI is attempted first; if that provider fails, configured Gemini is tried next. When no provider succeeds, the built-in analyst returns its deterministic answer. `POST /agent/query/stream` sends SSE events; the frontend renders answer chunks progressively. Responses include period/source context, evidence sufficiency and a metric snapshot. Recommendations are suggestions to validate, not guaranteed outcomes.
+
+## API endpoints
+
+All paths below are relative to `/api/v1`.
+
+### Authentication and teams
+
+| Method and path | Purpose |
 | --- | --- |
-| `GET /analytics/overview` | KPI summary and period comparison |
-| `GET /analytics/revenue-trends` | Revenue, orders, and average order value over time |
-| `GET /analytics/sales-breakdown` | Product category, source, and top-product breakdowns |
-| `GET /analytics/customers` | Customer activity and repeat-purchase metrics |
-| `GET /analytics/alerts` | Business anomaly alerts |
-| `GET /analytics/inventory-risk` | Stock levels and estimated days of cover |
-| `GET /analytics/ai-context` | Structured analytics context for the business analyst |
-| `GET /analytics/export/csv` | Download analytics as CSV |
-| `POST /agent/inventory-reorder-draft` | Calculate a restock draft for human review; does not submit an order |
-| `GET /sources` | List registered data sources |
-| `GET /sources/integration-readiness` | Report whether the backend has a Stripe key configured; does not expose the key |
-| `POST /sources` | Register a supported source type |
-| `GET /pipelines/summary` | Ingestion run and record totals |
-| `POST /pipelines/trigger` | Run ingestion; send `source_id` and `record_type` in the request body |
-| `GET /pipelines/runs` | List recent ingestion runs |
-| `POST /upload/csv` | Upload and ingest a CSV file |
+| `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout` | Create account, start and revoke a session |
+| `GET /auth/me` | Current member and company |
+| `GET /auth/team` | Company members and pending invitations |
+| `POST /auth/invitations`, `GET /auth/invitations/preview`, `POST /auth/invitations/accept` | Invite, preview and accept a team invitation |
+| `PATCH /auth/team/{member_id}/role`, `DELETE /auth/team/{member_id}` | Change role or remove a member |
+| `DELETE /auth/invitations/{invitation_id}` | Revoke a pending invite |
+| `GET /auth/audit-events` | Recent workspace sign-in and account events |
+| `GET/POST/DELETE /auth/chat-history` | Read, save or clear the member's analyst chat history |
+
+### Data, pipelines and sources
+
+| Method and path | Purpose |
+| --- | --- |
+| `POST /upload/csv` | Import `order`, `customer` or `product` CSV data |
+| `GET/POST/DELETE /sources` | List, register or remove a source; registration alone does not test external access |
+| `GET /sources/integration-readiness` | Check whether a Stripe credential is configured without returning it |
+| `POST /pipelines/trigger` | Run a connector for a source and record type |
+| `GET /pipelines/runs`, `GET /pipelines/runs/{run_id}`, `GET /pipelines/summary` | Review run details, history and ingestion totals |
 | `GET /health` | API and database health |
-| `POST /auth/invitations` | Manager-only invitation; sends email when SMTP is configured and otherwise returns a secure share link |
-| `GET /auth/team` | List company members and pending invitations |
-| `GET /auth/invitations/preview` | Validate an invitation link and show its company and role |
-| `POST /auth/invitations/accept` | Accept an invitation and create a manager or viewer account in that workspace |
-| `PATCH /auth/team/{member_id}/role` | Manager-only role update |
-| `DELETE /auth/team/{member_id}` | Manager-only member removal |
-| `DELETE /auth/invitations/{invitation_id}` | Manager-only invitation revocation |
 
-For request/response schemas and interactive examples, start the API and open `/docs`.
+### Analytics and exports
 
-## Supported source types
+| Method and path | Purpose |
+| --- | --- |
+| `GET /analytics/overview` | KPI totals and period-over-period comparisons |
+| `GET /analytics/revenue-trends` | Revenue, orders and average order value over time |
+| `GET /analytics/sales-breakdown` | Categories, source platforms and top products |
+| `GET /analytics/customers` | Customer activity, retention indicators and RFM segments |
+| `GET /analytics/alerts`, `GET /analytics/inventory-risk` | Business alerts and stock-risk estimates |
+| `GET /analytics/ai-context` | Structured workspace metrics and evidence for the analyst |
+| `GET /analytics/export/csv` | Revenue and order time-series CSV |
+| `GET /analytics/export/xlsx` | Executive workbook with summary, trends, products, customer segments and recommendations where available |
 
-The source registry contains `csv`, `spreadsheet`, `mock_api`, `stripe`, and `hubspot`. Stripe uses the backend-only `STRIPE_SECRET_KEY`; the Data Sources screen reports whether it is configured and shows recent ingestion runs. Source registration only creates a record; a sync must complete successfully to confirm access.
+Analytics routes accept the selected date range and, where applicable, a source filter and custom dates.
 
-## Read-only SQL
+### AI Analyst
 
-Business APIs require a bearer session. Each account belongs to one company workspace; ORM reads are filtered to that workspace's data sources, while managers can invite additional users with manager or viewer roles. Viewer roles can read analytics but cannot upload data, change data sources, or start pipelines. Direct SQL execution is disabled for authenticated workspaces because arbitrary SQL cannot be tenant-filtered by ORM rules. AI responses include the analysis period, company source scope, record counts, and a data-sufficiency note.
+| Method and path | Purpose |
+| --- | --- |
+| `POST /agent/query`, `POST /agent/query/stream` | Evidence-grounded answer, as a full response or SSE stream |
+| `POST /agent/recommendations` | Prioritized business recommendations |
+| `POST /agent/diagnose` | Evidence-based investigation of a business alert |
+| `POST /agent/inventory-reorder-draft` | Review-only suggested restock quantity |
+| `GET /agent/suggestions`, `GET /agent/capabilities` | Contextual prompts and capability metadata |
+| `POST /agent/sql` | Disabled for authenticated workspaces |
+
+## Connector status
+
+Registered source types include `csv`, `spreadsheet`, `mock_api`, `stripe` and `hubspot`. Stripe uses `STRIPE_SECRET_KEY` on the backend and imports only records available to the configured account. HubSpot and other connectors depend on their own credentials and implementation. Do not treat a registered source as proof that credentials, permissions or an external sync succeeded; review the corresponding pipeline run.

@@ -82,8 +82,8 @@ def revenue_summary(db: Session = Depends(get_db)) -> dict[str, Any]:
     row = (
         db.query(
             func.count(Order.id).label("total_orders"),
-            func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("total_revenue_usd"),
-            func.coalesce(func.avg(case((Order.currency == "USD", Order.total_amount_usd), else_=None)), 0).label("avg_order_value_usd"),
+            func.coalesce(func.sum(case((Order.total_amount_usd.is_not(None), Order.total_amount_usd), else_=0)), 0).label("total_revenue_usd"),
+            func.coalesce(func.avg(case((Order.total_amount_usd.is_not(None), Order.total_amount_usd), else_=None)), 0).label("avg_order_value_usd"),
             func.count(func.distinct(Order.customer_id)).label("unique_customers"),
         )
         .filter(~Order.status.in_(["cancelled", "refunded"]))
@@ -107,7 +107,7 @@ def sales_by_date(
         db.query(
             func.date(Order.order_date).label("sale_date"),
             func.count(Order.id).label("order_count"),
-            func.coalesce(func.sum(case((Order.currency == "USD", Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
+            func.coalesce(func.sum(case((Order.total_amount_usd.is_not(None), Order.total_amount_usd), else_=0)), 0).label("revenue_usd"),
         )
         .filter(~Order.status.in_(["cancelled", "refunded"]))
         .group_by(func.date(Order.order_date))

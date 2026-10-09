@@ -123,7 +123,7 @@ class TestCleanOrders:
             "currency": ["GBP"],
         })
         result = clean_orders(df)
-        assert pd.isna(result["total_amount_usd"].iloc[0])
+        assert result["total_amount_usd"].iloc[0] == Decimal("190.49")
 
     def test_sets_default_status(self):
         df = pd.DataFrame({

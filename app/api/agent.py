@@ -87,6 +87,70 @@ def query_agent(
     return result
 
 
+@router.post("/query/stream", summary="Stream Natural Language Q&A Response via Server-Sent Events (SSE)")
+def stream_query(
+    req: AgentQueryRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Executes business query reasoning and streams the response token by token via SSE.
+    """
+    import json
+    import queue
+    import threading
+    from fastapi.responses import StreamingResponse
+
+    svc = AIAgentService(db)
+    def event_stream():
+        messages: queue.Queue = queue.Queue()
+        sentinel = object()
+        chunk_count = 0
+
+        def run_analysis():
+            nonlocal chunk_count
+            try:
+                result = svc.process_query(
+                    query=req.query,
+                    date_range=req.date_range,
+                    source_name=req.source_name,
+                    conversation_history=req.conversation_history,
+                    include_sql=req.include_sql,
+                    on_chunk=lambda chunk: (messages.put({"chunk": chunk, "done": False}), setattr_counter()),
+                )
+                if chunk_count == 0:
+                    # Built-in deterministic answers are still delivered progressively.
+                    for offset in range(0, len(result["answer"]), 24):
+                        messages.put({"chunk": result["answer"][offset:offset + 24], "done": False, "model_used": result["model_used"]})
+                messages.put({"done": True, "full_result": result})
+            except Exception as exc:
+                logger.exception("Streaming agent query failed")
+                messages.put({"error": "The analyst could not complete this answer."})
+            finally:
+                messages.put(sentinel)
+
+        def setattr_counter():
+            nonlocal chunk_count
+            chunk_count += 1
+
+        threading.Thread(target=run_analysis, daemon=True).start()
+        while True:
+            message = messages.get()
+            if message is sentinel:
+                break
+            yield f"data: {json.dumps(message)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+
 @router.post("/recommendations", summary="Generate Prioritized Strategic Recommendations")
 def get_recommendations(
     req: RecommendationsRequest,

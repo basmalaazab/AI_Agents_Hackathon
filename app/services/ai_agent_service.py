@@ -16,7 +16,7 @@ import logging
 import math
 import os
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 from sqlalchemy import text
@@ -903,6 +903,7 @@ class AIAgentService:
         source_name: Optional[str] = None,
         conversation_history: Optional[List[Dict[str, str]]] = None,
         include_sql: bool = True,
+        on_chunk: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         """
         Processes a natural language business intelligence question.
@@ -1171,9 +1172,9 @@ class AIAgentService:
             top_prods = breakdown.get("top_products", [])
             executed_sql = (
                 "SELECT oi.product_name, SUM(oi.quantity) AS units_sold, "
-                "SUM(oi.line_total) AS revenue_usd "
+                "SUM(oi.line_total_usd) AS revenue_usd "
                 "FROM order_items oi JOIN orders o ON o.id = oi.order_id "
-                "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.currency = 'USD' AND oi.currency = 'USD' "
+                "WHERE o.status NOT IN ('cancelled', 'refunded') AND oi.line_total_usd IS NOT NULL "
                 "GROUP BY oi.product_name ORDER BY revenue_usd DESC LIMIT 5;"
             )
             executed_sql = self._scope_generated_sql(executed_sql, date_range, source_name, alias="o")
@@ -1214,15 +1215,15 @@ class AIAgentService:
                 "SELECT c.email, c.first_name, c.last_name, COUNT(o.id) AS order_count, "
                 "SUM(o.total_amount_usd) AS lifetime_value_usd "
                 "FROM customers c JOIN orders o ON o.customer_id = c.id "
-                "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.currency = 'USD' "
+                "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.total_amount_usd IS NOT NULL "
                 "GROUP BY c.id, c.email, c.first_name, c.last_name "
                 "ORDER BY lifetime_value_usd DESC LIMIT 5;"
             )
             if source_name:
                 escaped_source = source_name.replace("'", "''")
                 executed_sql = executed_sql.replace(
-                    "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.currency = 'USD'",
-                    "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.currency = 'USD' "
+                    "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.total_amount_usd IS NOT NULL",
+                    "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.total_amount_usd IS NOT NULL "
                     f"AND c.source_name = '{escaped_source}' AND o.source_name = '{escaped_source}'",
                 )
             if include_sql:
@@ -1264,11 +1265,11 @@ class AIAgentService:
             top_cats = breakdown.get("top_categories", [])
             executed_sql = (
                 "SELECT p.category, COUNT(oi.id) AS units_sold, "
-                "SUM(oi.line_total) AS revenue_usd "
+                "SUM(oi.line_total_usd) AS revenue_usd "
                 "FROM order_items oi "
                 "JOIN orders o ON o.id = oi.order_id "
                 "JOIN products p ON p.id = oi.product_id "
-                "WHERE o.status NOT IN ('cancelled', 'refunded') AND o.currency = 'USD' AND oi.currency = 'USD' "
+                "WHERE o.status NOT IN ('cancelled', 'refunded') AND oi.line_total_usd IS NOT NULL "
                 "GROUP BY p.category ORDER BY revenue_usd DESC;"
             )
             executed_sql = self._scope_generated_sql(executed_sql, date_range, source_name, alias="o")
@@ -1523,18 +1524,16 @@ class AIAgentService:
         # LLM Synthesis (if API key is configured)
         # -------------------------------------------------------------------
         model_used = "built-in-analyst"
-        if intent not in {
-            "general_query", "direct_sql", "unsupported_profit_analysis",
-            "inventory_risk", "anomaly_diagnosis", "customer_analysis",
-        } and (
+        if intent not in {"direct_sql", "unsupported_profit_analysis"} and (
             self.settings.gemini_api_key or self.settings.openai_api_key or os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")
-        ) and response_evidence["sufficiency"]["level"] == "sufficient":
+        ):
             try:
                 enhanced_answer, enhanced_model = self._synthesize_with_llm(
                     query=q_clean,
                     ai_context=ai_context,
                     draft_answer=answer,
                     conversation_history=conversation_history,
+                    on_chunk=on_chunk,
                 )
                 if enhanced_answer:
                     answer = enhanced_answer
@@ -1577,24 +1576,35 @@ class AIAgentService:
         ai_context: Dict[str, Any],
         draft_answer: str,
         conversation_history: Optional[List[Dict[str, str]]] = None,
+        on_chunk: Optional[Callable[[str], None]] = None,
     ) -> Tuple[Optional[str], Optional[str]]:
-        """Optionally enhances answer using OpenAI or Google Gemini if keys are present."""
+        """Optionally enhances answer using OpenAI first, then Google Gemini fallback, or returns None."""
         openai_key = self.settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
         gemini_key = self.settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
 
-        prompt = (
-            f"You are the AI Business Intelligence Agent for a small business. "
-            f"Answer clearly, but treat the Baseline Draft Analysis as authoritative. "
-            f"Use only facts, numbers, limitations, and recommendations already stated in that draft. "
-            f"Do not add or calculate metrics, infer causes, invent impact estimates, or contradict the draft. "
-            f"If the draft says the data is unavailable or a conclusion cannot be determined, preserve that limitation.\n\n"
-            f"Business Analytics Context:\n{ai_context}\n\n"
-            f"User Question: {query}\n\n"
-            f"Baseline Draft Analysis:\n{draft_answer}\n\n"
-            f"Provide a concise, beautifully formatted markdown response."
+        is_arabic = bool(re.search(r"[\u0600-\u06FF]", query))
+        lang_instruction = (
+            "اللغة: السؤال باللغة العربية. يجب أن تجيب بلغة عربية فصحى واضحة، احترافية ومرتبة باستخدام Markdown. حافظ على الأرقام والنسب والعملات كما هي في المسودة."
+            if is_arabic
+            else "Language: Respond in clear, professional English with clean markdown formatting and bold headers."
         )
 
+        prompt = (
+            f"You are the AI Business Intelligence Agent for a small business.\n"
+            f"{lang_instruction}\n\n"
+            f"Grounding Rules:\n"
+            f"- Treat the Baseline Draft Analysis as authoritative ground truth.\n"
+            f"- Use only metrics, numbers, and recommendations from the context and draft.\n"
+            f"- Never invent metrics or contradict the draft.\n\n"
+            f"Business Analytics Context:\n{ai_context}\n\n"
+            f"User Question:\n{query}\n\n"
+            f"Baseline Draft Analysis:\n{draft_answer}\n\n"
+            f"Provide a helpful, executive-ready response."
+        )
+
+        # 1. Try OpenAI first
         if openai_key:
+            openai_parts: List[str] = []
             try:
                 import openai
                 client = openai.OpenAI(api_key=openai_key, max_retries=0)
@@ -1605,25 +1615,54 @@ class AIAgentService:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.2,
-                    max_tokens=600,
+                    max_tokens=700,
+                    stream=on_chunk is not None,
                 )
-                return response.choices[0].message.content, "gpt-4o-mini"
+                if on_chunk is None:
+                    return response.choices[0].message.content, "gpt-4o-mini"
+                for event in response:
+                    piece = event.choices[0].delta.content if event.choices else None
+                    if piece:
+                        openai_parts.append(piece)
+                        on_chunk(piece)
+                if openai_parts:
+                    return "".join(openai_parts), "gpt-4o-mini"
             except Exception as e:
-                logger.warning("OpenAI synthesis failed; trying Gemini fallback (%s)", type(e).__name__)
+                logger.warning("OpenAI synthesis failed; falling back to Gemini (%s: %s)", type(e).__name__, str(e)[:80])
+                if on_chunk is not None and openai_parts:
+                    return "".join(openai_parts), "gpt-4o-mini (interrupted)"
 
+        # 2. Try Gemini fallback (trying resilient models)
         if gemini_key:
             try:
                 from google import genai
                 client = genai.Client(api_key=gemini_key)
-                response = client.models.generate_content(
-                    model="gemini-3.8-flash",
-                    contents=prompt,
-                )
-                return response.text, "gemini-3.8-flash"
+                gemini_models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash"]
+                for g_model in gemini_models:
+                    gemini_parts: List[str] = []
+                    try:
+                        if on_chunk is not None:
+                            for event in client.models.generate_content_stream(model=g_model, contents=prompt):
+                                if event.text:
+                                    gemini_parts.append(event.text)
+                                    on_chunk(event.text)
+                            if gemini_parts:
+                                return "".join(gemini_parts), g_model
+                        else:
+                            response = client.models.generate_content(model=g_model, contents=prompt)
+                            if response.text:
+                                return response.text, g_model
+                    except Exception as gemini_err:
+                        logger.debug("Gemini model %s failed: %s", g_model, gemini_err)
+                        if gemini_parts:
+                            return "".join(gemini_parts), f"{g_model} (interrupted)"
+                        continue
             except Exception as e:
-                logger.warning("Gemini synthesis failed (%s)", type(e).__name__)
+                logger.warning("Gemini synthesis fallback failed (%s)", type(e).__name__)
 
+        # 3. If both failed, caller will use deterministic draft answer
         return None, None
+
 
     def _generate_arabic_response(
         self,

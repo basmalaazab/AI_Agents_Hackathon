@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Brain, Send, RefreshCw, Sparkles, ChevronRight, AlertCircle, WifiOff } from "lucide-react";
+import { Brain, Send, RefreshCw, Sparkles, ChevronRight, AlertCircle, WifiOff, Upload } from "lucide-react";
 import { askAIAgent, fetchPromptSuggestions } from "../services/agentApi";
 import type { ChatMessage, PromptSuggestion } from "../types/agent";
 import { MarkdownContent } from "./MarkdownContent";
@@ -9,6 +9,7 @@ interface AIBriefingPanelProps {
   dateRange: string;
   sourceName?: string;
   onOpenFullModal: () => void;
+  onOpenDataSources?: () => void;
   apiOffline: boolean;
 }
 
@@ -18,6 +19,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
   dateRange,
   sourceName,
   onOpenFullModal,
+  onOpenDataSources,
   apiOffline,
 }) => {
   const [question, setQuestion] = useState("");
@@ -65,6 +67,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
   const rev = aiData?.headline_kpis?.revenue?.current;
   const orders = aiData?.headline_kpis?.orders?.current;
   const hasBriefData = rev !== undefined && orders !== undefined;
+  const needsData = !hasBriefData || (Number(rev) === 0 && Number(orders) === 0);
 
   const defaultSuggestions: PromptSuggestion[] = [
     { category: "revenue", prompt: "What drove revenue this period?", icon: "" },
@@ -111,7 +114,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           title="Open full AI Analyst"
         >
           <Sparkles size={15} color="var(--accent-indigo)" />
-          Full Analyst
+          Open analyst workspace
           <ChevronRight size={15} />
         </button>
       </div>
@@ -168,6 +171,16 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
         </div>
       )}
 
+      {!apiOffline && needsData && (
+        <div className="analyst-empty-state" role="status">
+          <div className="analyst-empty-copy">
+            <strong>Start with your business data</strong>
+            <span>Upload a sales, customer, or product CSV, then come back for tailored insights.</span>
+          </div>
+          {onOpenDataSources && <button className="btn btn-primary" onClick={onOpenDataSources}><Upload size={15} /> Add data</button>}
+        </div>
+      )}
+
       {/* Question input */}
       <div className="ai-question-bar">
         <input
@@ -178,13 +191,13 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleAsk()}
           placeholder="e.g. Why did revenue drop last week? Which product should I push?"
-          disabled={isSending || apiOffline}
+          disabled={isSending || apiOffline || needsData}
           aria-label="Ask the AI Analyst a question about your business"
         />
         <button
           className="btn btn-primary"
           onClick={() => handleAsk()}
-          disabled={isSending || !question.trim() || apiOffline}
+          disabled={isSending || !question.trim() || apiOffline || needsData}
           aria-label="Send question to AI Analyst"
           style={{ flexShrink: 0, background: "var(--accent-indigo)", color: "var(--accent-on-primary)", border: "none" }}
         >
@@ -194,7 +207,7 @@ export const AIBriefingPanel: React.FC<AIBriefingPanelProps> = ({
       </div>
 
       {/* Suggested questions */}
-      {!answer && !isSending && (
+      {!answer && !isSending && !needsData && (
         <div className="ai-suggestion-pills" role="list" aria-label="Suggested questions">
           {pills.map((s, i) => (
             <button

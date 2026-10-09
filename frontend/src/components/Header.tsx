@@ -1,14 +1,15 @@
 import React from "react";
-import { Download, Bot, Moon, Sun, BarChart3, LayoutDashboard, Brain, Database, Activity, Users } from "lucide-react";
+import { Download, Bot, Moon, Sun, LayoutDashboard, Brain, Database, Activity, Users, Printer, ChartNoAxesCombined } from "lucide-react";
 import type { AuthUser } from "../services/auth";
 
-export type NavSection = "overview" | "analyst" | "sources" | "team" | "activity";
+export type NavSection = "overview" | "performance" | "analyst" | "sources" | "team" | "activity";
 
 interface HeaderProps {
   theme: "dark" | "light";
   onToggleTheme: () => void;
   onOpenAIModal: () => void;
   onExport: () => void;
+  onPrintReport: () => void;
   user: AuthUser;
   onLogout: () => void;
   activeSection: NavSection;
@@ -17,6 +18,7 @@ interface HeaderProps {
 
 const NAV_TABS: { id: NavSection; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
   { id: "overview",  label: "Overview",     Icon: LayoutDashboard },
+  { id: "performance", label: "Performance", Icon: ChartNoAxesCombined },
   { id: "analyst",   label: "AI Analyst",   Icon: Brain },
   { id: "sources",   label: "Data Sources", Icon: Database },
   { id: "team",      label: "Team",         Icon: Users },
@@ -28,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   onOpenAIModal,
   onExport,
+  onPrintReport,
   user,
   onLogout,
   activeSection,
@@ -35,41 +38,26 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header
-      className="glass-card"
-      style={{ padding: "16px 24px", marginBottom: "24px" }}
+      className="glass-card app-header"
+      style={{ padding: "18px 22px", marginBottom: "24px" }}
       role="banner"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "16px" }}>
+      <div className="app-header-top">
         {/* Brand */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <div
-            aria-hidden="true"
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "10px",
-              background: "linear-gradient(135deg, #246b4d 0%, #24845a 100%)",
-              boxShadow: "0 2px 8px rgba(36, 107, 77, 0.25)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <BarChart3 size={22} color="white" />
-          </div>
-          <div>
-            <h1 style={{ fontSize: "1.15rem", fontWeight: 700, lineHeight: 1.2, color: "var(--text-primary)" }}>
+        <a className="brand-lockup" href="#overview" onClick={(event) => { event.preventDefault(); onSectionChange("overview"); }} aria-label="Clearview BI home">
+          <img className="brand-mark" src="/favicon.svg" alt="" />
+          <div className="brand-copy">
+            <h1>
               Clearview BI
             </h1>
-            <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-              Business insights from your data
+            <p>
+              Your business, in clear view
             </p>
           </div>
-        </div>
+        </a>
 
         {/* Controls */}
-        <div className="app-header-controls" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+        <div className="app-header-controls">
           <button
             className="btn btn-primary"
             onClick={onOpenAIModal}
@@ -92,15 +80,26 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onExport}
             className="btn btn-secondary"
             style={{ textDecoration: "none", fontSize: "0.85rem", padding: "9px 14px" }}
-            aria-label="Export data as CSV"
-            title="Export data as CSV"
+            aria-label="Export executive report as Excel workbook"
+            title="Download executive Excel workbook"
           >
             <Download size={16} />
-            <span>Export CSV</span>
+            <span>Export Excel</span>
           </button>
 
-          <span style={{ color: "var(--text-secondary)", fontSize: "0.82rem" }}>{user.business_name}</span>
-          <button className="btn btn-secondary" onClick={onLogout} style={{ fontSize: "0.82rem", padding: "9px 12px" }}>Sign out</button>
+          <button
+            onClick={onPrintReport}
+            className="btn btn-secondary"
+            style={{ textDecoration: "none", fontSize: "0.85rem", padding: "9px 14px" }}
+            aria-label="Print or Save Executive PDF Report"
+            title="Print or Save Executive PDF Report"
+          >
+            <Printer size={16} />
+            <span>Print / PDF</span>
+          </button>
+
+          <span className="workspace-chip" title={`Signed in to ${user.business_name}`}><span>Workspace</span><strong>{user.business_name}</strong></span>
+          <button className="btn btn-quiet" onClick={onLogout}>Sign out</button>
 
           <button
             className="btn btn-secondary"
@@ -117,6 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Navigation */}
       <nav
         aria-label="Workspace sections"
+        className="app-header-nav"
         style={{ marginTop: "16px" }}
       >
         <div className="app-nav" role="tablist">
@@ -128,6 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label={label}
               title={label}
               className={`nav-tab${activeSection === id ? " active" : ""}`}
+              aria-current={activeSection === id ? "page" : undefined}
               onClick={() => onSectionChange(id)}
             >
               <Icon size={16} />
