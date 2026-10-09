@@ -4,7 +4,7 @@ This guide is for a short, self-guided hackathon demo. The product presentation 
 
 ## Demo setup
 
-For a one-command Docker setup, start Docker Desktop and run `.scriptsjudge_demo.ps1` from the repository root in PowerShell. Open the printed local URL and create a company account. The script seeds the isolated judge workspace and requires no AI provider key. Stop it with `.scriptsjudge_demo.ps1 -Stop`; the data volume remains available. A first-time container build depends on network and machine speed.
+For a one-command Docker setup, start Docker Desktop and run `.\scripts\judge_demo.ps1` from the repository root in PowerShell, or `bash scripts/judge_demo.sh` on macOS/Linux. Open the printed local URL and create a company account. The script seeds the isolated judge workspace and requires no AI provider key. Stop it with `.\scripts\judge_demo.ps1 -Stop` on Windows or `bash scripts/judge_demo.sh --stop` on macOS/Linux; the data volume remains available. A first-time container build depends on network and machine speed.
 
 Use a disposable database to make the walkthrough predictable. From the repository root in PowerShell:
 

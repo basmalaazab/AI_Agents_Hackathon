@@ -134,13 +134,21 @@ See [Database and API reference](DATABASE_CONTRACT.md), [Demo runbook](DEMO_RUNB
 
 ## Five-minute judge demo
 
-With Docker Desktop running, open PowerShell in the repository root and run:
+The isolated judge demo seeds the fictional workspace, waits for the API health check, and prints the local URL. It requires Docker Desktop; no API keys or shared reviewer password are needed. On a fresh database, create an account to claim the seeded workspace.
+
+**Windows PowerShell:**
 
 ```powershell
 .\scripts\judge_demo.ps1
 ```
 
-The script starts an isolated Compose project on port `5175`, waits for the API health check, and loads the fictional demo dataset. Open the URL it prints and create a company account to claim the seeded workspace. The built-in analyst works without AI keys; OpenAI and Gemini are optional. Stop the demo with `.\scripts\judge_demo.ps1 -Stop`; its database volume is kept for the next run. The first image build may take longer than five minutes depending on network and machine speed; once images are cached, setup is a single command.
+**macOS or Linux:**
+
+```bash
+bash scripts/judge_demo.sh
+```
+
+Open [http://127.0.0.1:5175](http://127.0.0.1:5175) and create a company account. The built-in analyst works without AI keys; OpenAI and Gemini are optional. Stop the demo and keep its database volume with `.\scripts\judge_demo.ps1 -Stop` on Windows or `bash scripts/judge_demo.sh --stop` on macOS/Linux. The first image build can take longer than five minutes depending on network and machine speed; once images are cached, setup is a single command.
 
 ## Run locally on Windows
 
