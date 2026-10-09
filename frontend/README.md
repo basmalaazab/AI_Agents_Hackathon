@@ -11,7 +11,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Start the API separately by following the repository [local setup](../README.md#run-locally-on-windows). Vite proxies `/api` to `http://127.0.0.1:8003`; set `VITE_PROXY_TARGET` before startup to use another backend.
+Open [http://localhost:5173](http://localhost:5173). Start the API separately by following the repository [local setup](../README.md#run-locally-on-windows). Vite proxies `/api` to `http://127.0.0.1:8003` by default. The root README's local setup uses port `8000`, so set `$env:VITE_PROXY_TARGET = "http://127.0.0.1:8000"` before `npm run dev` when following that path.
 
 ## User-facing areas
 

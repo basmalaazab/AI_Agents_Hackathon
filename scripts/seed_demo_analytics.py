@@ -165,6 +165,13 @@ def seed_rich_analytics_data():
             total_amount = round(total_amount, 2)
             ext_order_id = f"ORD-{day_offset}-{random.randint(10000, 99999)}"
 
+            # Keep the judge-demo seed safe to rerun against its persistent volume.
+            existing_order = db.query(Order).filter_by(
+                source_name=source_name,
+                external_id=ext_order_id,
+            ).first()
+            if existing_order:
+                continue
 
             order = Order(
                 source_name=source_name,

@@ -4,6 +4,8 @@ This guide is for a short, self-guided hackathon demo. The product presentation 
 
 ## Demo setup
 
+For a one-command Docker setup, start Docker Desktop and run `.scriptsjudge_demo.ps1` from the repository root in PowerShell. Open the printed local URL and create a company account. The script seeds the isolated judge workspace and requires no AI provider key. Stop it with `.scriptsjudge_demo.ps1 -Stop`; the data volume remains available. A first-time container build depends on network and machine speed.
+
 Use a disposable database to make the walkthrough predictable. From the repository root in PowerShell:
 
 ```powershell
@@ -16,6 +18,10 @@ $env:SCHEDULER_INTERVAL_MINUTES = "0"
 In another terminal, start the frontend using [the local setup instructions](README.md#run-locally-on-windows). Create the demo company account, or log in to the prepared demo workspace. The first account on a seeded database claims the demo workspace; later accounts use isolated workspaces.
 
 The supplied sample figures and CSVs are fictional. Keep them separate from any real company data.
+
+## Impact evidence and limits
+
+The dashboard's revenue, order, cancellation and stock figures come from synthetic sample records. They demonstrate what the product calculates, not business outcomes achieved for an SME. No real SME pilot has yet measured hours saved, operating cost saved or incremental revenue. For a real pilot, record a baseline and post-use measurement for the same reporting workflow, and attribute any change carefully before making an impact claim.
 
 ## Self-guided product path
 

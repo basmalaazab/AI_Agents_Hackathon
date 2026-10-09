@@ -78,6 +78,16 @@ See [Database and API reference](DATABASE_CONTRACT.md), [Demo runbook](DEMO_RUNB
 - Node.js 22+ and npm (see the checked-in frontend lockfile)
 - Docker Desktop with Compose, if using the container workflow
 
+## Five-minute judge demo
+
+With Docker Desktop running, open PowerShell in the repository root and run:
+
+```powershell
+.\scripts\judge_demo.ps1
+```
+
+The script starts an isolated Compose project on port `5175`, waits for the API health check, and loads the fictional demo dataset. Open the URL it prints and create a company account to claim the seeded workspace. The built-in analyst works without AI keys; OpenAI and Gemini are optional. Stop the demo with `.\scripts\judge_demo.ps1 -Stop`; its database volume is kept for the next run. The first image build may take longer than five minutes depending on network and machine speed; once images are cached, setup is a single command.
+
 ## Run locally on Windows
 
 ### 1. Start the API
@@ -101,11 +111,12 @@ In a second PowerShell terminal:
 
 ```powershell
 cd frontend
+$env:VITE_PROXY_TARGET = "http://127.0.0.1:8000"
 npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Vite proxies API requests to `http://127.0.0.1:8003` by default. Set `VITE_PROXY_TARGET` if the API uses another address.
+Open [http://localhost:5173](http://localhost:5173). Vite proxies API requests to `http://127.0.0.1:8003` by default; the command above points it at the locally started API on port `8000`.
 
 ### Optional configuration
 
