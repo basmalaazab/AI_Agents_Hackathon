@@ -23,6 +23,30 @@ Clearview BI is a multi-company business intelligence demo for startups and smal
 - **Export a report:** download a multi-sheet Excel workbook or use the print/PDF report view.
 - **Normalize supported currencies:** revenue is reported in USD using daily reference rates when available. Orders with unsupported or unavailable rates are reported separately and excluded from USD totals.
 
+## Business case
+
+### Customer and problem
+
+Clearview BI is designed for small, multi-channel retailers and other SMEs that manage sales and customer activity across several tools. Owners often export orders, payments, customer lists and product stock into separate spreadsheets before they can answer basic operating questions. That manual work delays reporting and makes it easier to miss a rising cancellation rate, a low-stock product or a change in repeat buying.
+
+### Value proposition
+
+Clearview gives the owner one company workspace for imported business records, a dashboard for sales and inventory signals, and an analyst that answers questions from the available data. It can explain what a metric shows, surface when the records do not establish a cause, and prepare a reorder suggestion for a manager to review. The goal is to help a small team spend less time assembling reports and respond sooner to issues that could affect sales or stock availability.
+
+### How a pilot should measure impact
+
+No real SME pilot has been completed, so this project does not claim measured time savings, cost reductions or revenue gains. A pilot should record a baseline, use the same business and reporting period after onboarding, and compare:
+
+- **Time saved:** minutes spent preparing a weekly sales and stock report.
+- **Operational response:** time from an alert to a reviewed action, plus stockout frequency and days of cover.
+- **Revenue outcomes:** changes in cancellation recovery and repeat purchases, measured against the business's own baseline and with other causes considered.
+
+The bundled fictional records demonstrate the product workflow. The UCI Online Retail sample demonstrates ingestion and historical transaction analysis; neither represents a Clearview customer or validates business impact.
+
+### Business model hypothesis
+
+A potential model is a low-cost SaaS subscription per company workspace, with plans based on connected data sources or transaction volume. This pricing and willingness to pay have not been validated. A real SME pilot should test whether the time saved and decisions improved justify the proposed subscription.
+
 ## Product workflow
 
 1. **Create a company account.** The first account on a fresh database claims the existing demo workspace; subsequent company signups receive separate workspaces.
