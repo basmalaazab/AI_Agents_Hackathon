@@ -251,3 +251,22 @@ export async function uploadCsvFile(
   }
   return res.json();
 }
+
+export interface PublicSampleImportResult {
+  source_name: string;
+  attribution: string;
+  period: string;
+  runs: Array<Omit<IngestionRunResult, "id"> & { run_id: string; source_name: string; record_type: string }>;
+}
+
+export async function importPublicRetailSample(): Promise<PublicSampleImportResult> {
+  const res = await authenticatedFetch(`${API_V1}/upload/public-sample/uci-online-retail`, {
+    method: "POST",
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    const detail = errData.detail;
+    throw new Error(typeof detail === "string" ? detail : "Could not import the public retail sample");
+  }
+  return res.json();
+}

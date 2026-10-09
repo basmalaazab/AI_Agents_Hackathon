@@ -5,6 +5,7 @@ import {
   fetchPipelineSummary,
   triggerPipeline,
   uploadCsvFile,
+  importPublicRetailSample,
   fetchStripeReadiness,
   fetchPipelineRuns,
   type PipelineRunInfo,
@@ -30,6 +31,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
   const [sourceName, setSourceName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isImportingPublicSample, setIsImportingPublicSample] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
@@ -127,6 +129,27 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
       setError(err instanceof Error ? err.message : "CSV ingestion failed");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleImportPublicSample = async () => {
+    setIsImportingPublicSample(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await importPublicRetailSample();
+      const inserted = result.runs.reduce((sum, run) => sum + run.records_inserted, 0);
+      const duplicates = result.runs.reduce((sum, run) => sum + run.records_duplicate, 0);
+      const invalid = result.runs.reduce((sum, run) => sum + run.records_invalid, 0);
+      setMessage(
+        `UCI public sample ready: ${inserted} records added${duplicates ? `, ${duplicates} already present` : ""}${invalid ? `, ${invalid} need review` : ""}. Historical data (${result.period}); choose All Time and filter to ${result.source_name}. This is not a real SME pilot.`
+      );
+      setLatestRuns(await fetchPipelineRuns());
+      await onSourcesChanged();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not import the public retail sample");
+    } finally {
+      setIsImportingPublicSample(false);
     }
   };
 
@@ -307,7 +330,7 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
       </div>
 
       {/* CSV Upload & New Integration Actions */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "20px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "20px" }}>
         {/* CSV Import */}
         <div className="glass-card source-action-card primary" style={{ padding: "20px 24px" }}>
           <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -371,6 +394,30 @@ export const DataSourcesPanel: React.FC<DataSourcesPanelProps> = ({
               {isUploading ? "Importing your file…" : "Upload and import"}
             </button>
           </div>
+        </div>
+
+        {/* Public evaluation dataset */}
+        <div className="glass-card source-action-card" style={{ padding: "20px 24px" }}>
+          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, margin: "0 0 8px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <Database size={16} color="var(--accent-indigo)" /> Try public retail data
+          </h4>
+          <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
+            Import the prepared UCI Online Retail sample: 500 historical invoices with customer and product records. No manual file selection required.
+          </p>
+          <p style={{ fontSize: "0.74rem", color: "var(--text-muted)", marginBottom: "16px" }}>
+            Public UK data from 2010–2011 · CC BY 4.0 · no stock counts · not a current SME pilot.
+          </p>
+          {isImportingPublicSample && <p role="status" style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>Importing three files and recording pipeline activity…</p>}
+          <button
+            className="btn btn-secondary"
+            onClick={() => void handleImportPublicSample()}
+            disabled={readOnly || isImportingPublicSample || isUploading || isSyncing}
+            title={readOnly ? "Manager access required" : "Import public historical retail records into this workspace"}
+            style={{ width: "100%", justifyContent: "center" }}
+          >
+            <Upload size={15} />
+            {isImportingPublicSample ? "Importing public sample…" : "Import UCI sample"}
+          </button>
         </div>
 
         {/* Register Platform Integration */}

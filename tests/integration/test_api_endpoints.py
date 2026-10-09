@@ -3,7 +3,9 @@ Integration tests for FastAPI endpoints.
 Tests health check, CSV upload, source listing, pipeline trigger, and data query endpoints.
 """
 import pytest
+import uuid
 from io import BytesIO
+from types import SimpleNamespace
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -110,6 +112,41 @@ def test_upload_customer_csv_deduplication(test_client):
     res = response.json()
     assert res["records_inserted"] == 0
     assert res["records_duplicate"] == 2
+
+
+def test_import_public_uci_sample_is_workspace_scoped_and_audited(test_client, monkeypatch):
+    from app.api import uploads
+
+    imported_types = []
+
+    def fake_ingest(self, data_source, record_type, file_content, triggered_by):
+        assert data_source.workspace_id is not None
+        assert data_source.name.startswith("ws_")
+        assert file_content
+        assert triggered_by == "public_sample"
+        imported_types.append(record_type)
+        return SimpleNamespace(
+            id=uuid.uuid4(),
+            status="success",
+            records_fetched=1,
+            records_valid=1,
+            records_invalid=0,
+            records_inserted=1,
+            records_duplicate=0,
+            error_message=None,
+        )
+
+    monkeypatch.setattr(uploads.IngestionService, "run_csv_ingestion", fake_ingest)
+    response = test_client.post("/api/v1/upload/public-sample/uci-online-retail")
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["source_name"] == "uci_online_retail"
+    assert result["period"] == "2010-12-01 to 2011-12-09"
+    assert result["attribution"].endswith("CC BY 4.0")
+    assert [run["record_type"] for run in result["runs"]] == ["customer", "product", "order"]
+    assert imported_types == ["customer", "product", "order"]
+    assert all(run["status"] == "success" for run in result["runs"])
 
 
 def test_upload_sales_csv_and_query_analytics(test_client):

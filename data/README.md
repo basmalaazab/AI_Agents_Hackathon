@@ -39,9 +39,11 @@ Credit: Chen, D. (2015). *Online Retail* [Dataset]. UCI Machine Learning Reposit
 ### Load the UCI sample
 
 1. Use a disposable company workspace or a clean local database. The sample is real historical public data; it is not a current SME pilot.
-2. In **Data Sources**, import `public_uci_sample/uci_customers.csv` as **Customers**, then `public_uci_sample/uci_products.csv` as **Products**, then `public_uci_sample/uci_orders.csv` as **Orders**.
-3. Enter the exact same source name for each import: `uci_online_retail`.
-4. Select **All Time** or a custom range from December 2010 through December 2011 and filter to `uci_online_retail`.
+2. Sign in as a workspace manager and open **Data Sources**.
+3. Click **Import UCI sample**. Clearview imports the customer, product, and order files under the workspace-scoped `uci_online_retail` source and records three ingestion runs in **Activity**. The button reports inserted, duplicate, and invalid row totals. Clicking it again is safe: existing rows are deduplicated.
+4. Select **All Time** or a custom range from December 2010 through December 2011 and filter to `uci_online_retail` to explore the historical results.
+
+You can also import the CSVs manually: import `uci_customers.csv` as **Customers**, `uci_products.csv` as **Products**, then `uci_orders.csv` as **Orders**, using `uci_online_retail` as the same source name each time.
 
 The converter script can rebuild the files from the official UCI download: `python scripts/prepare_uci_online_retail.py`. To use a previously downloaded UCI ZIP, pass `--source-zip path\to\online-retail.zip`. The default output is the included `data/public_uci_sample/` folder.
 
