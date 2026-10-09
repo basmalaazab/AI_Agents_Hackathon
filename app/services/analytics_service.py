@@ -279,12 +279,33 @@ class AnalyticsService:
         """
         c_start, c_end, _, _ = self.resolve_date_range(date_range, start_date, end_date)
 
+        # Older databases may already have the normalized USD columns but still
+        # contain order items without line_total_usd. Fall back to the original
+        # amount for USD items, and allocate a normalized order total across its
+        # items for other currencies when a per-item conversion is unavailable.
+        item_revenue_usd = func.coalesce(
+            OrderItem.line_total_usd,
+            case(
+                (func.upper(OrderItem.currency) == "USD", OrderItem.line_total),
+                (
+                    and_(
+                        Order.total_amount_usd.is_not(None),
+                        Order.total_amount.is_not(None),
+                        Order.total_amount > 0,
+                    ),
+                    Order.total_amount_usd * OrderItem.line_total / Order.total_amount,
+                ),
+                else_=None,
+            ),
+            0,
+        )
+
         # 1. By Category (joining OrderItem -> Product & Order)
         cat_query = (
             self.db.query(
                 func.coalesce(Product.category, "Uncategorized").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(case((OrderItem.line_total_usd.is_not(None), OrderItem.line_total_usd), else_=0)), 0).label("revenue"),
+                func.coalesce(func.sum(item_revenue_usd), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
@@ -349,7 +370,7 @@ class AnalyticsService:
                 OrderItem.sku,
                 func.coalesce(Product.category, "General").label("category"),
                 func.sum(OrderItem.quantity).label("units_sold"),
-                func.coalesce(func.sum(case((OrderItem.line_total_usd.is_not(None), OrderItem.line_total_usd), else_=0)), 0).label("revenue"),
+                func.coalesce(func.sum(item_revenue_usd), 0).label("revenue"),
                 func.count(func.distinct(OrderItem.order_id)).label("order_count"),
             )
             .join(Order, Order.id == OrderItem.order_id)
