@@ -23,6 +23,8 @@ The supplied sample figures and CSVs are fictional. Keep them separate from any 
 
 The dashboard's revenue, order, cancellation and stock figures come from synthetic sample records. They demonstrate what the product calculates, not business outcomes achieved for an SME. No real SME pilot has yet measured hours saved, operating cost saved or incremental revenue. For a real pilot, record a baseline and post-use measurement for the same reporting workflow, and attribute any change carefully before making an impact claim.
 
+For a realistic public-data walkthrough, import the prepared UCI CSVs described in [the data guide](data/README.md#public-historical-retail-sample-uci). The historical rows support sales, product and customer analysis, but contain no inventory balances and cannot establish Clearview's impact on the original retailer.
+
 ## Self-guided product path
 
 1. **Overview:** choose the 30-day period. Review revenue, order volume, cancellation alerts, top products and the low-stock monitor. Explain the figures as sample data, not real business results.

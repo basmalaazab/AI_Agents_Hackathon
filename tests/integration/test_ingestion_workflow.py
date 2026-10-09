@@ -182,11 +182,33 @@ class TestOrderIngestion:
         assert second_run.records_inserted == 0
         assert second_run.records_duplicate == 1
         assert db_session.query(OrderItem).count() == 1
-
         third_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
         assert third_run.records_inserted == 0
         assert third_run.records_duplicate == 1
         assert db_session.query(OrderItem).count() == 1
+
+    def test_multiline_order_keeps_every_product_line_and_is_idempotent(
+        self, db_session, sample_source
+    ):
+        csv_content = (
+            b"order_id,customer_id,order_date,total_amount,currency,product_name,sku,quantity,unit_price,line_total,status\n"
+            b"INV-100,C001,2011-01-05,30.00,GBP,Red Mug,MUG-1,1,10.00,10.00,completed\n"
+            b"INV-100,C001,2011-01-05,30.00,GBP,Blue Mug,MUG-2,2,10.00,20.00,completed\n"
+        )
+        svc = IngestionService(db_session)
+
+        first_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
+        assert first_run.records_inserted == 1
+        assert db_session.query(Order).count() == 1
+        assert db_session.query(OrderItem).count() == 2
+        breakdown = AnalyticsService(db_session).get_sales_breakdown("all")
+        assert {p["name"] for p in breakdown["top_products"]} == {"Red Mug", "Blue Mug"}
+
+        second_run = svc.run_csv_ingestion(sample_source, "order", csv_content)
+        assert second_run.records_inserted == 0
+        assert second_run.records_duplicate == 1
+        assert db_session.query(Order).count() == 1
+        assert db_session.query(OrderItem).count() == 2
 
 
 class TestProductInventoryIngestion:

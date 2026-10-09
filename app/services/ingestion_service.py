@@ -138,7 +138,13 @@ class IngestionService:
 
             # 5. Intra-batch deduplication
             id_col = self._id_column(record_type)
-            cleaned_df, dup_count = cleaner.deduplicate_by_column(cleaned_df, id_col)
+            if record_type == "order":
+                # Order CSVs may have one row per line item. Keep all rows so
+                # product analytics retain every item; parent orders are
+                # deduplicated inside _transform_and_load below.
+                dup_count = 0
+            else:
+                cleaned_df, dup_count = cleaner.deduplicate_by_column(cleaned_df, id_col)
             run.records_duplicate += dup_count
 
             # 6. Transform + Load
@@ -248,8 +254,9 @@ class IngestionService:
             from app.models.customer import Customer
 
             customer_map: dict[str, uuid.UUID] = {}
-            if "customer_id" in df.columns:
-                ext_ids = df["customer_id"].dropna().astype(str).unique().tolist()
+            order_rows = df.drop_duplicates(subset=["order_id"], keep="first")
+            if "customer_id" in order_rows.columns:
+                ext_ids = order_rows["customer_id"].dropna().astype(str).unique().tolist()
                 rows = (
                     self.db.query(Customer.external_id, Customer.id)
                     .filter(
@@ -260,7 +267,7 @@ class IngestionService:
                 )
                 customer_map = {r.external_id: r.id for r in rows}
 
-            instances = transformer.transform_orders(df, source_name, customer_map)
+            instances = transformer.transform_orders(order_rows, source_name, customer_map)
             result, _ = loader.upsert_orders(self.db, instances)
             external_ids = [order.external_id for order in instances]
             persisted_orders = (

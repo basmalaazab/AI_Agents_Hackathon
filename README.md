@@ -9,6 +9,7 @@ Clearview BI is a multi-company business intelligence demo for startups and smal
 ## At a glance
 
 - **Bring data together:** upload order, customer and product CSVs; connect the Stripe test-mode connector when a server-side key is configured.
+- **Try historical public records:** import a 500-invoice UCI Online Retail sample with customer and product rows to explore real transaction patterns; it is historical dataset testing, not a Clearview customer-impact claim.
 - **See business performance:** explore revenue and order trends, period comparisons, products, categories, sales sources, customer activity, alerts and inventory risk.
 - **Ask the analyst:** get streamed answers grounded in workspace metrics, with the period and source scope shown and limitations called out when evidence is incomplete.
 - **Use AI providers optionally:** OpenAI is tried first, Gemini is the fallback, and the built-in deterministic analyst remains available if providers are not configured or fail.
@@ -70,7 +71,7 @@ This is a hackathon/MVP build. Before using live business data, review security,
 - **Storage:** PostgreSQL in Docker Compose; SQLite can be used for local development with `DATABASE_URL`.
 - **Optional services:** mock API, Stripe, HubSpot, OpenAI, Gemini and SMTP, enabled through server-side environment settings.
 
-See [Database and API reference](DATABASE_CONTRACT.md), [Demo runbook](DEMO_RUNBOOK.md), [demo data notes](data/README.md) and [frontend development notes](frontend/README.md).
+See [Database and API reference](DATABASE_CONTRACT.md), [Demo runbook](DEMO_RUNBOOK.md), [demo and public data notes](data/README.md) and [frontend development notes](frontend/README.md).
 
 ## Requirements
 
