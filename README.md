@@ -76,6 +76,30 @@ This is a hackathon/MVP build. Before using live business data, review security,
 - **Storage:** PostgreSQL in Docker Compose; SQLite can be used for local development with `DATABASE_URL`.
 - **Optional services:** mock API, Stripe, HubSpot, OpenAI, Gemini and SMTP, enabled through server-side environment settings.
 
+```mermaid
+flowchart LR
+    Owner[Business owner] --> UI[React + TypeScript UI]
+    UI <-->|REST API and SSE| API[FastAPI]
+
+    CSV[CSV uploads and UCI sample] --> API
+    Stripe[Stripe connector<br/>test or live] --> API
+    API --> PIPE[Validate, normalize,<br/>deduplicate]
+    PIPE --> DB[(PostgreSQL<br/>workspace-scoped data)]
+
+    API --> ANALYTICS[Analytics and reports]
+    ANALYTICS <--> DB
+    API --> AGENT[AI Business Analyst]
+    AGENT --> CONTEXT[Workspace metrics<br/>and deterministic draft]
+    CONTEXT --> OPENAI[OpenAI<br/>optional first provider]
+    OPENAI -->|fails or unavailable| GEMINI[Gemini fallback<br/>optional]
+    OPENAI -->|success| STREAM[Stream answer to UI]
+    GEMINI -->|success| STREAM
+    CONTEXT -->|no provider succeeds| STREAM
+    STREAM --> UI
+```
+
+Each authenticated request is scoped to the user's company workspace. Imported data and connector syncs share the same ingestion pipeline; the analyst uses workspace metrics to ground answers before optional model refinement. Answers stream back to the browser, while deterministic analysis remains available if external AI providers are unavailable.
+
 See [Database and API reference](DATABASE_CONTRACT.md), [Demo runbook](DEMO_RUNBOOK.md), [demo and public data notes](data/README.md) and [frontend development notes](frontend/README.md).
 
 ## Requirements
