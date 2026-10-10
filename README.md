@@ -2,7 +2,7 @@
 
 **One clear view. Better next moves.**
 
-Clearview BI is a multi-company business intelligence demo for startups and small businesses. It brings imported sales, customer, product and inventory data into a shared workspace, turns it into an operational dashboard, and provides an AI Business Analyst that answers from the available records.
+Clearview BI is a **tool-using AI business analyst agent** for startups and small businesses. A business owner can ask a question in natural language; the agent scopes the request to the selected company, period and data source, runs the relevant analytics, and returns an evidence-grounded explanation or next-step recommendation. It can also prepare an inventory reorder draft for a person to review. It brings imported sales, customer, product and inventory data into one workspace so owners can move from scattered records to a clear, reviewable decision.
 
 > **Demo data:** The included CSVs and the sample figures in screenshots and the presentation are synthetic. They are for product demonstration only and are not customer results or financial guidance.
 
@@ -22,6 +22,22 @@ Clearview BI is a multi-company business intelligence demo for startups and smal
 - **Share a company workspace:** invite managers or viewers, keep each company's records scoped to its workspace, and review account and ingestion activity.
 - **Export a report:** download a multi-sheet Excel workbook or use the print/PDF report view.
 - **Normalize supported currencies:** revenue is reported in USD using daily reference rates when available. Orders with unsupported or unavailable rates are reported separately and excluded from USD totals.
+
+## Why Clearview BI is an AI agent
+
+Clearview is more than a chat box attached to a dashboard: the agent connects a natural-language request to company-scoped business data and analytic capabilities, then returns a response with its evidence and limits. Its workflow is:
+
+1. **Understand the request.** The owner asks about sales, products, customers, cancellations, inventory or a recommended action, with a selected reporting period and optional source filter.
+2. **Use business-data tools.** The backend retrieves workspace-scoped records and invokes deterministic analytics for the relevant KPIs, comparisons, product/customer breakdowns, alerts or diagnosis. The calculations—not the language model—are the source of reported figures.
+3. **Reason over the evidence.** When configured, OpenAI is the primary model and Gemini is tried if OpenAI is unavailable or fails. The model explains the computed context; if neither provider is configured, the built-in analyst can still return deterministic answers.
+4. **Return a reviewable result.** Answers stream to the UI and identify the period, source scope and available evidence. When the data cannot establish a cause or support a claim, the analyst should say so instead of inventing a number.
+5. **Prepare a bounded action.** For stock risk, the agent can calculate a suggested reorder quantity and prepare a draft. A manager reviews it; Clearview does not place orders or change business records on the user's behalf.
+
+The agent's tools include natural-language analytics, anomaly diagnosis, prioritized recommendations, customer segmentation and inventory reorder drafting. Company data is workspace-scoped. Direct SQL execution is disabled for company workspaces, and no model provider is required for the basic deterministic analyst. This is a bounded decision-support agent with human review—not an autonomous operator.
+
+### Agent demo in one question
+
+After importing the sample business data, ask **“Why is our cancellation rate high?”** Clearview reports the observed rate and affected order count for the selected period, checks what evidence is available, and distinguishes observed facts from possible causes. Then open the stock-risk view and prepare a reorder draft to see the human-reviewed action flow. The included demo records are synthetic; use the [demo runbook](DEMO_RUNBOOK.md) to reproduce the workflow.
 
 ## Business case
 
